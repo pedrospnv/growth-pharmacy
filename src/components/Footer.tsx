@@ -1,6 +1,10 @@
 import { Leaf, Mail, Phone, MapPin } from "lucide-react";
+import { useState, useEffect } from "react";
 
 export function Footer() {
+  const [year, setYear] = useState(2026);
+  useEffect(() => setYear(new Date().getFullYear()), []);
+
   return (
     <footer className="mt-24 border-t border-border bg-ink text-background">
       <div className="container mx-auto grid gap-10 px-4 py-14 md:grid-cols-4">
@@ -39,7 +43,7 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-background/10 py-5 text-center text-xs text-background/50">
-        © {new Date().getFullYear()} BioFarma · Todos os direitos reservados
+        © {year} BioFarma · Todos os direitos reservados
       </div>
     </footer>
   );
