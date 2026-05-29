@@ -65,6 +65,8 @@ export function Header() {
                 <>
                   <DropdownMenuLabel className="truncate">{user.email}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate({ to: "/conta" })}>Minha conta</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate({ to: "/conta" })}>Meus pedidos</DropdownMenuItem>
                   {isAdmin && <DropdownMenuItem onClick={() => navigate({ to: "/admin" })}>Painel Admin</DropdownMenuItem>}
                   <DropdownMenuItem onClick={() => signOut()}><LogOut className="h-4 w-4 mr-2" />Sair</DropdownMenuItem>
                 </>
