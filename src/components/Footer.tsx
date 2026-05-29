@@ -1,4 +1,6 @@
 import { Leaf, Mail, Phone, MapPin } from "lucide-react";
+import { useState, useEffect } from "react";
+
 
 export function Footer() {
   return (
