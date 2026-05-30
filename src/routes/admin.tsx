@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Download, Package, ShoppingBag } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
-  head: () => ({ meta: [{ title: "Admin — BioFarma" }] }),
+  head: () => ({ meta: [{ title: "Admin — Farma Pro" }] }),
   component: Admin,
 });
 
@@ -44,7 +44,7 @@ function Admin() {
       <div className="container mx-auto px-4 py-10 flex-1">
         <div className="mb-8">
           <p className="text-xs uppercase tracking-[0.2em] text-primary font-bold">Painel</p>
-          <h1 className="font-display text-4xl font-extrabold mt-1">Admin BioFarma</h1>
+          <h1 className="font-display text-4xl font-extrabold mt-1">Admin Farma Pro</h1>
         </div>
         <Tabs defaultValue="produtos">
           <TabsList>
@@ -190,7 +190,7 @@ function PedidosAdmin() {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Pedidos");
-    XLSX.writeFile(wb, `biofarma-pedidos-${new Date().toISOString().slice(0,10)}.xlsx`);
+    XLSX.writeFile(wb, `farmapro-pedidos-${new Date().toISOString().slice(0,10)}.xlsx`);
   };
 
   return (
