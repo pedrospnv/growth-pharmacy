@@ -7,7 +7,7 @@ import { brl } from "@/lib/format";
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/carrinho")({
-  head: () => ({ meta: [{ title: "Carrinho — BioFarma" }] }),
+  head: () => ({ meta: [{ title: "Carrinho — Farma Pro" }] }),
   component: Carrinho,
 });
 

@@ -15,11 +15,11 @@ const searchSchema = z.object({
   q: z.string().optional(),
 });
 
-const CATEGORIAS = ["Medicamentos", "Vitaminas", "Higiene Pessoal", "Dermocosméticos", "Suplementos"];
+const CATEGORIAS = ["Medicamentos", "Manipulação", "Suplementos", "Vitaminas", "Higiene Pessoal", "Dermocosméticos"];
 
 export const Route = createFileRoute("/produtos")({
   validateSearch: searchSchema,
-  head: () => ({ meta: [{ title: "Catálogo — BioFarma" }, { name: "description", content: "Catálogo completo BioFarma." }] }),
+  head: () => ({ meta: [{ title: "Catálogo — Farma Pro" }, { name: "description", content: "Catálogo completo Farma Pro." }] }),
   component: Produtos,
 });
 
@@ -52,43 +52,47 @@ function Produtos() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <div className="container mx-auto px-4 py-10 flex-1">
+      <div className="container mx-auto px-4 py-10 md:py-14 flex-1">
         <div className="mb-8">
-          <p className="text-xs uppercase tracking-[0.2em] text-primary font-bold">Catálogo</p>
-          <h1 className="font-display text-4xl font-extrabold mt-1">
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-bold">Catálogo</p>
+          <h1 className="font-display text-3xl md:text-5xl font-black mt-2 text-primary">
             {categoria ?? "Todos os produtos"}
           </h1>
           <p className="text-muted-foreground mt-2 text-sm">{filtered.length} produtos encontrados</p>
         </div>
 
+        {/* Pills filter */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-6 scrollbar-none">
+          <Link to="/produtos" search={{} as any}
+            className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition ${!categoria ? "bg-primary text-white" : "border border-border bg-background text-foreground/80 hover:border-primary hover:text-primary"}`}>
+            Todos
+          </Link>
+          {CATEGORIAS.map((c) => (
+            <Link key={c} to="/produtos" search={{ categoria: c } as any}
+              className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition ${categoria === c ? "bg-primary text-white" : "border border-border bg-background text-foreground/80 hover:border-primary hover:text-primary"}`}>
+              {c}
+            </Link>
+          ))}
+        </div>
+
         <div className="grid lg:grid-cols-[260px,1fr] gap-8">
-          <aside className="space-y-6">
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <h3 className="font-display font-bold mb-3">Buscar</h3>
+          <aside className="space-y-5">
+            <div className="rounded-xl border border-border bg-card p-5">
+              <h3 className="font-display font-bold mb-3 text-primary text-sm">Buscar</h3>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   value={q}
                   onChange={(e) => { setQ(e.target.value); navigate({ search: (s: any) => ({ ...s, q: e.target.value || undefined }) }); }}
                   placeholder="Nome do produto..."
-                  className="pl-9"
+                  className="pl-9 bg-surface"
                 />
               </div>
             </div>
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <h3 className="font-display font-bold mb-3">Categorias</h3>
-              <div className="space-y-1">
-                <Link to="/produtos" search={{} as any} className={`block px-3 py-2 rounded-lg text-sm ${!categoria ? "bg-primary text-primary-foreground font-semibold" : "hover:bg-muted"}`}>Todas</Link>
-                {CATEGORIAS.map((c) => (
-                  <Link key={c} to="/produtos" search={{ categoria: c } as any}
-                    className={`block px-3 py-2 rounded-lg text-sm ${categoria === c ? "bg-primary text-primary-foreground font-semibold" : "hover:bg-muted"}`}>{c}</Link>
-                ))}
-              </div>
-            </div>
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <h3 className="font-display font-bold mb-3">Preço máximo</h3>
+            <div className="rounded-xl border border-border bg-card p-5">
+              <h3 className="font-display font-bold mb-3 text-primary text-sm">Preço máximo</h3>
               <Slider value={[maxPreco]} onValueChange={(v) => setMaxPreco(v[0])} min={10} max={300} step={10} />
-              <p className="text-sm mt-3 font-semibold text-primary">Até R$ {maxPreco}</p>
+              <p className="text-sm mt-3 font-bold text-primary">Até R$ {maxPreco}</p>
             </div>
           </aside>
 
@@ -96,11 +100,11 @@ function Produtos() {
             {isLoading ? (
               <p className="text-muted-foreground">Carregando...</p>
             ) : filtered.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border p-12 text-center">
+              <div className="rounded-xl border border-dashed border-border p-12 text-center bg-surface">
                 <p className="text-muted-foreground">Nenhum produto encontrado.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
                 {filtered.map((p) => <ProductCard key={p.id} p={p} />)}
               </div>
             )}

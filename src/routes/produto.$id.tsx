@@ -51,7 +51,7 @@ function ProdutoDetalhe() {
           <Link to="/produtos" className="hover:text-primary">Produtos</Link> · <span>{p.categoria}</span>
         </nav>
         <div className="grid md:grid-cols-2 gap-10">
-          <div className="rounded-3xl overflow-hidden bg-gradient-soft border border-border shadow-card">
+          <div className="rounded-3xl overflow-hidden bg-surface border border-border shadow-card">
             {p.imagem_url && <img src={p.imagem_url} alt={p.nome} className="w-full aspect-square object-cover" />}
           </div>
           <div>

@@ -47,11 +47,11 @@ function Cadastro() {
       <div className="flex-1 grid place-items-center px-4 py-16">
         <div className="w-full max-w-md rounded-3xl border border-border bg-card p-8 shadow-card">
           <div className="text-center mb-6">
-            <div className="inline-grid h-12 w-12 place-items-center rounded-2xl bg-gradient-accent text-primary-foreground mb-3">
+            <div className="inline-grid h-12 w-12 place-items-center rounded-2xl bg-primary text-primary-foreground mb-3">
               <Leaf className="h-6 w-6" />
             </div>
             <h1 className="font-display text-3xl font-extrabold">Criar conta</h1>
-            <p className="text-sm text-muted-foreground mt-1">Cuide da sua saúde com a BioFarma</p>
+            <p className="text-sm text-muted-foreground mt-1">Cuide da sua saúde com a Farma Pro</p>
           </div>
           <form onSubmit={submit} className="space-y-4">
             <div><Label>Nome</Label><Input value={nome} onChange={(e) => setNome(e.target.value)} /></div>

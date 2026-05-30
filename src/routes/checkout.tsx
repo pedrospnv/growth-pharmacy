@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { Check, CreditCard, QrCode, Barcode } from "lucide-react";
 
 export const Route = createFileRoute("/checkout")({
-  head: () => ({ meta: [{ title: "Checkout — BioFarma" }] }),
+  head: () => ({ meta: [{ title: "Checkout — Farma Pro" }] }),
   component: Checkout,
 });
 

@@ -19,7 +19,7 @@ interface CartCtx {
 }
 
 const CartContext = createContext<CartCtx | null>(null);
-const STORAGE = "biofarma_cart";
+const STORAGE = "farmapro_cart";
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
