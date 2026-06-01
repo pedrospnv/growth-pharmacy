@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
-import { brl, maskCep, maskCardNumber, maskCardExp, onlyDigits, calcFretePorEstado } from "@/lib/format";
+import { brl, maskCep, maskCardNumber, maskCardExp, onlyDigits, calcFretePorCep } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Check, CreditCard, QrCode, Barcode } from "lucide-react";
@@ -58,7 +58,7 @@ function Checkout() {
           ...e, rua: data.logradouro || e.rua, bairro: data.bairro || e.bairro,
           cidade: data.localidade || e.cidade, estado: data.uf || e.estado,
         }));
-        setFrete(calcFretePorEstado(data.uf));
+        setFrete(calcFretePorCep(d));
       } else toast.error("CEP não encontrado");
     } catch { toast.error("Falha ao buscar CEP"); }
     setCepLoading(false);
@@ -142,7 +142,7 @@ function Checkout() {
                 <Button
                   size="lg" className="w-full rounded-full"
                   disabled={!endereco.nome || !endereco.cep || !endereco.rua || !endereco.numero || !endereco.cidade || !endereco.estado}
-                  onClick={() => { if (!frete) setFrete(calcFretePorEstado(endereco.estado)); setStep(2); }}
+                  onClick={() => { if (!frete) setFrete(calcFretePorCep(endereco.cep)); setStep(2); }}
                 >Continuar para frete</Button>
               </>
             )}
