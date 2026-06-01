@@ -7,10 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
-import { brl, maskCep, maskCardNumber, maskCardExp, onlyDigits, calcFretePorCep } from "@/lib/format";
+import { brl, maskCep, maskCardNumber, maskCardExp, maskCpf, onlyDigits, calcFretePorCep } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Check, CreditCard, QrCode, Barcode } from "lucide-react";
+import { Check, CreditCard, QrCode, Barcode, Copy, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({ meta: [{ title: "Checkout — Farma Pro" }] }),
