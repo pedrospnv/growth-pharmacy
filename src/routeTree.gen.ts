@@ -22,6 +22,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProdutoIdRouteImport } from './routes/produto.$id'
 import { Route as PedidoIdRouteImport } from './routes/pedido.$id'
+import { Route as ApiMercadopagoCreateRouteImport } from './routes/api/mercadopago.create'
 
 const VerificarEmailRoute = VerificarEmailRouteImport.update({
   id: '/verificar-email',
@@ -88,6 +89,11 @@ const PedidoIdRoute = PedidoIdRouteImport.update({
   path: '/pedido/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMercadopagoCreateRoute = ApiMercadopagoCreateRouteImport.update({
+  id: '/api/mercadopago/create',
+  path: '/api/mercadopago/create',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/verificar-email': typeof VerificarEmailRoute
   '/pedido/$id': typeof PedidoIdRoute
   '/produto/$id': typeof ProdutoIdRoute
+  '/api/mercadopago/create': typeof ApiMercadopagoCreateRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/verificar-email': typeof VerificarEmailRoute
   '/pedido/$id': typeof PedidoIdRoute
   '/produto/$id': typeof ProdutoIdRoute
+  '/api/mercadopago/create': typeof ApiMercadopagoCreateRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/verificar-email': typeof VerificarEmailRoute
   '/pedido/$id': typeof PedidoIdRoute
   '/produto/$id': typeof ProdutoIdRoute
+  '/api/mercadopago/create': typeof ApiMercadopagoCreateRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -151,6 +160,7 @@ export interface FileRouteTypes {
     | '/verificar-email'
     | '/pedido/$id'
     | '/produto/$id'
+    | '/api/mercadopago/create'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -166,6 +176,7 @@ export interface FileRouteTypes {
     | '/verificar-email'
     | '/pedido/$id'
     | '/produto/$id'
+    | '/api/mercadopago/create'
   id:
     | '__root__'
     | '/'
@@ -181,6 +192,7 @@ export interface FileRouteTypes {
     | '/verificar-email'
     | '/pedido/$id'
     | '/produto/$id'
+    | '/api/mercadopago/create'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -197,6 +209,7 @@ export interface RootRouteChildren {
   VerificarEmailRoute: typeof VerificarEmailRoute
   PedidoIdRoute: typeof PedidoIdRoute
   ProdutoIdRoute: typeof ProdutoIdRoute
+  ApiMercadopagoCreateRoute: typeof ApiMercadopagoCreateRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -292,6 +305,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PedidoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/mercadopago/create': {
+      id: '/api/mercadopago/create'
+      path: '/api/mercadopago/create'
+      fullPath: '/api/mercadopago/create'
+      preLoaderRoute: typeof ApiMercadopagoCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -309,7 +329,18 @@ const rootRouteChildren: RootRouteChildren = {
   VerificarEmailRoute: VerificarEmailRoute,
   PedidoIdRoute: PedidoIdRoute,
   ProdutoIdRoute: ProdutoIdRoute,
+  ApiMercadopagoCreateRoute: ApiMercadopagoCreateRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
