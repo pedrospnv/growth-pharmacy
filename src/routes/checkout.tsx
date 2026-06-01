@@ -69,27 +69,89 @@ function Checkout() {
   const desconto = pgto === "pix" ? subtotal * 0.1 : 0;
   const total = subtotal + frete - desconto;
 
+  const callMP = async (payload: any) => {
+    const r = await fetch("/api/mercadopago/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const json = await r.json();
+    if (!r.ok) throw new Error(json?.error || "Falha no pagamento");
+    return json;
+  };
+
   const finalizar = async () => {
     if (!user) return;
+    if (!endereco.cpf || onlyDigits(endereco.cpf).length !== 11) {
+      toast.error("Informe um CPF válido"); return;
+    }
     setSaving(true);
-    const { data, error } = await supabase.from("pedidos").insert({
-      user_id: user.id,
-      nome_cliente: endereco.nome,
-      email: user.email!,
-      endereco: `${endereco.rua}, ${endereco.numero}${endereco.complemento ? " - " + endereco.complemento : ""} · ${endereco.bairro}`,
-      cep: endereco.cep,
-      cidade: endereco.cidade,
-      estado: endereco.estado,
-      itens: items as any,
-      subtotal, frete, desconto_pix: desconto, total,
-      forma_pagamento: pgto,
-      status: "confirmado",
-    }).select("id").single();
+    try {
+      const basePayer = { email: user.email!, nome: endereco.nome, cpf: endereco.cpf };
+      const baseAddress = {
+        cep: endereco.cep, rua: endereco.rua, numero: endereco.numero,
+        bairro: endereco.bairro, cidade: endereco.cidade, estado: endereco.estado,
+      };
 
-    setSaving(false);
-    if (error) { toast.error("Falha ao registrar pedido: " + error.message); return; }
-    clear();
-    navigate({ to: "/pedido/$id", params: { id: data.id } });
+      let mpResult: any = null;
+      let mpStatus = "pendente";
+
+      if (pgto === "pix") {
+        mpResult = await callMP({ method: "pix", amount: total, payer: basePayer, description: `Pedido Farma Pro` });
+        setPixData({ qr_code_base64: mpResult.qr_code_base64, qr_code: mpResult.qr_code });
+        mpStatus = mpResult.status === "approved" ? "pago" : "aguardando_pix";
+      } else if (pgto === "boleto") {
+        mpResult = await callMP({ method: "boleto", amount: total, payer: basePayer, address: baseAddress });
+        setBoletoData({ barcode: mpResult.barcode, boleto_url: mpResult.boleto_url });
+        mpStatus = "aguardando_boleto";
+      } else {
+        mpResult = await callMP({
+          method: "cartao", amount: total, payer: basePayer,
+          card: { numero: cartao.numero, nome: cartao.nome, validade: cartao.validade, cvv: cartao.cvv, parcelas: cartao.parcelas },
+        });
+        if (mpResult.status !== "approved") {
+          throw new Error(`Pagamento ${mpResult.status}: ${mpResult.status_detail || ""}`);
+        }
+        mpStatus = "pago";
+      }
+
+      const { data, error } = await supabase.from("pedidos").insert({
+        user_id: user.id,
+        nome_cliente: endereco.nome,
+        email: user.email!,
+        endereco: `${endereco.rua}, ${endereco.numero}${endereco.complemento ? " - " + endereco.complemento : ""} · ${endereco.bairro}`,
+        cep: endereco.cep,
+        cidade: endereco.cidade,
+        estado: endereco.estado,
+        itens: items as any,
+        subtotal, frete, desconto_pix: desconto, total,
+        forma_pagamento: pgto,
+        status: mpStatus === "pago" ? "confirmado" : mpStatus,
+      }).select("id").single();
+
+      if (error) throw error;
+
+      // Cartão = redireciona direto. PIX/Boleto = mantém na tela pra usuário ver o código.
+      if (pgto === "cartao") {
+        clear();
+        navigate({ to: "/pedido/$id", params: { id: data.id } });
+      } else {
+        toast.success(pgto === "pix" ? "PIX gerado! Escaneie o QR Code." : "Boleto gerado!");
+        // Limpa carrinho mas mantém na tela pra mostrar QR/boleto
+        clear();
+        (window as any).__pedidoId = data.id;
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Erro no pagamento");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyPix = () => {
+    if (!pixData?.qr_code) return;
+    navigator.clipboard.writeText(pixData.qr_code);
+    toast.success("Código PIX copiado!");
   };
 
   return (
