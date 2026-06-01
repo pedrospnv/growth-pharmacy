@@ -38,8 +38,8 @@ function Checkout() {
   const [boletoData, setBoletoData] = useState<{ barcode?: string; boleto_url?: string } | null>(null);
 
   useEffect(() => {
-    if (items.length === 0 && step !== 3) navigate({ to: "/carrinho" });
-  }, [items.length, step, navigate]);
+    if (items.length === 0 && step !== 3 && !pixData && !boletoData) navigate({ to: "/carrinho" });
+  }, [items.length, step, navigate, pixData, boletoData]);
 
   useEffect(() => {
     if (!user && step === 1) {
