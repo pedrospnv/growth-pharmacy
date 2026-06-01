@@ -188,6 +188,10 @@ function Checkout() {
                     <Input value={endereco.nome} onChange={(e) => setEndereco({ ...endereco, nome: e.target.value })} />
                   </div>
                   <div>
+                    <Label>CPF</Label>
+                    <Input value={endereco.cpf} onChange={(e) => setEndereco({ ...endereco, cpf: maskCpf(e.target.value) })} placeholder="000.000.000-00" />
+                  </div>
+                  <div>
                     <Label>CEP</Label>
                     <Input value={endereco.cep} onChange={(e) => {
                       const v = maskCep(e.target.value);
@@ -205,7 +209,7 @@ function Checkout() {
                 </div>
                 <Button
                   size="lg" className="w-full rounded-full"
-                  disabled={!endereco.nome || !endereco.cep || !endereco.rua || !endereco.numero || !endereco.cidade || !endereco.estado}
+                  disabled={!endereco.nome || !endereco.cpf || !endereco.cep || !endereco.rua || !endereco.numero || !endereco.cidade || !endereco.estado}
                   onClick={() => { if (!frete) setFrete(calcFretePorCep(endereco.cep)); setStep(2); }}
                 >Continuar para frete</Button>
               </>
