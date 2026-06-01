@@ -27,13 +27,15 @@ function Checkout() {
   const [step, setStep] = useState<Step>(1);
 
   const [endereco, setEndereco] = useState({
-    nome: "", cep: "", rua: "", numero: "", complemento: "", bairro: "", cidade: "", estado: "",
+    nome: "", cpf: "", cep: "", rua: "", numero: "", complemento: "", bairro: "", cidade: "", estado: "",
   });
   const [cepLoading, setCepLoading] = useState(false);
   const [frete, setFrete] = useState(0);
   const [pgto, setPgto] = useState<Pgto>("pix");
-  const [cartao, setCartao] = useState({ numero: "", nome: "", validade: "", cvv: "" });
+  const [cartao, setCartao] = useState({ numero: "", nome: "", validade: "", cvv: "", parcelas: 1 });
   const [saving, setSaving] = useState(false);
+  const [pixData, setPixData] = useState<{ qr_code_base64?: string; qr_code?: string } | null>(null);
+  const [boletoData, setBoletoData] = useState<{ barcode?: string; boleto_url?: string } | null>(null);
 
   useEffect(() => {
     if (items.length === 0 && step !== 3) navigate({ to: "/carrinho" });
