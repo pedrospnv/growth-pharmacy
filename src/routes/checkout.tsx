@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
-import { brl, maskCep, maskCardNumber, maskCardExp, onlyDigits, calcFretePorEstado } from "@/lib/format";
+import { brl, maskCep, maskCardNumber, maskCardExp, onlyDigits, calcFretePorCep } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Check, CreditCard, QrCode, Barcode } from "lucide-react";
