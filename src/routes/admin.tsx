@@ -110,7 +110,11 @@ function ProdutosAdmin() {
       <div className="flex justify-between mb-4">
         <p className="text-sm text-muted-foreground">{produtos.length} produtos</p>
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button onClick={openNew} className="rounded-full gap-2"><Plus className="h-4 w-4" /> Novo produto</Button></DialogTrigger>
+          <DialogTrigger asChild>
+            <Button onClick={openNew} className="rounded-full gap-2">
+              <Plus className="h-4 w-4" /> Novo produto
+            </Button>
+          </DialogTrigger>
           <DialogContent className="max-w-xl">
             <DialogHeader><DialogTitle>{editing ? "Editar" : "Novo"} produto</DialogTitle></DialogHeader>
             <div className="space-y-3">
@@ -121,7 +125,7 @@ function ProdutosAdmin() {
                 <div><Label>Estoque</Label><Input type="number" value={form.estoque} onChange={(e) => setForm({ ...form, estoque: Number(e.target.value) })} /></div>
                 <div><Label>Categoria</Label>
                   <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
-                    {["Medicamentos","Vitaminas","Higiene Pessoal","Dermocosméticos","Suplementos"].map((c) => <option key={c}>{c}</option>)}
+                    {["Medicamentos","Manipulação","Vitaminas","Higiene Pessoal","Dermocosméticos","Suplementos"].map((c) => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div><Label>Desconto (%)</Label><Input type="number" value={form.desconto ?? 0} onChange={(e) => setForm({ ...form, desconto: Number(e.target.value) })} /></div>
@@ -132,11 +136,42 @@ function ProdutosAdmin() {
           </DialogContent>
         </Dialog>
       </div>
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+
+      {/* Mobile: cards */}
+      <div className="flex flex-col gap-3 md:hidden">
+        {produtos.map((p) => (
+          <div key={p.id} className="rounded-2xl border border-border bg-card p-4 flex gap-3">
+            {p.imagem_url && (
+              <img src={p.imagem_url} alt="" className="h-16 w-16 rounded-lg object-cover flex-shrink-0" />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm leading-tight">{p.nome}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{p.categoria}</p>
+              <p className="text-sm font-bold text-primary mt-1">{brl(Number(p.preco))}</p>
+              <p className="text-xs text-muted-foreground">Estoque: {p.estoque}</p>
+            </div>
+            <div className="flex flex-col gap-2 flex-shrink-0">
+              <Button variant="outline" size="sm" onClick={() => openEdit(p)} className="h-8 w-8 p-0 rounded-lg">
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => remove(p.id)} className="h-8 w-8 p-0 rounded-lg border-destructive">
+                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop: tabela */}
+      <div className="hidden md:block rounded-2xl border border-border bg-card overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr className="text-left">
-              <th className="p-3">Produto</th><th className="p-3">Categoria</th><th className="p-3">Preço</th><th className="p-3">Estoque</th><th className="p-3"></th>
+              <th className="p-3">Produto</th>
+              <th className="p-3">Categoria</th>
+              <th className="p-3">Preço</th>
+              <th className="p-3">Estoque</th>
+              <th className="p-3"></th>
             </tr>
           </thead>
           <tbody>
@@ -197,13 +232,44 @@ function PedidosAdmin() {
     <div>
       <div className="flex justify-between mb-4">
         <p className="text-sm text-muted-foreground">{pedidos.length} pedidos</p>
-        <Button onClick={exportar} className="rounded-full gap-2"><Download className="h-4 w-4" /> Exportar (.xlsx)</Button>
+        <Button onClick={exportar} className="rounded-full gap-2">
+          <Download className="h-4 w-4" /> Exportar (.xlsx)
+        </Button>
       </div>
-      <div className="rounded-2xl border border-border bg-card overflow-x-auto">
+
+      {/* Mobile: cards de pedido */}
+      <div className="flex flex-col gap-3 md:hidden">
+        {pedidos.map((p: any) => (
+          <div key={p.id} className="rounded-2xl border border-border bg-card p-4 space-y-2">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="font-semibold text-sm">{p.nome_cliente}</p>
+                <p className="text-xs text-muted-foreground">{p.email}</p>
+              </div>
+              <span className="text-xs bg-muted px-2 py-1 rounded-full capitalize">{p.forma_pagamento}</span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {p.cidade}/{p.estado} · CEP {p.cep}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {(p.itens as any[]).length} itens · {new Date(p.criado_em).toLocaleDateString("pt-BR")}
+            </div>
+            <div className="text-base font-bold text-primary">{brl(Number(p.total))}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop: tabela */}
+      <div className="hidden md:block rounded-2xl border border-border bg-card overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr className="text-left">
-              <th className="p-3">Data</th><th className="p-3">Cliente</th><th className="p-3">Cidade/UF</th><th className="p-3">Itens</th><th className="p-3">Total</th><th className="p-3">Pgto</th>
+              <th className="p-3">Data</th>
+              <th className="p-3">Cliente</th>
+              <th className="p-3">Cidade/UF</th>
+              <th className="p-3">Itens</th>
+              <th className="p-3">Total</th>
+              <th className="p-3">Pgto</th>
             </tr>
           </thead>
           <tbody>
