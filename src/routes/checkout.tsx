@@ -254,20 +254,23 @@ function Checkout() {
                 {pgto === "pix" && (
                   <div className="rounded-xl border border-border p-6 text-center bg-secondary/40">
                     <p className="text-sm font-bold text-success mb-3">✓ 10% OFF aplicado automaticamente</p>
-                    <div className="inline-block bg-white p-3 rounded-xl">
-                      <img alt="QR Code PIX" className="h-44 w-44"
-                        src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='white'/><g fill='black'>
-                        <rect x='5' y='5' width='25' height='25'/><rect x='10' y='10' width='15' height='15' fill='white'/><rect x='13' y='13' width='9' height='9'/>
-                        <rect x='70' y='5' width='25' height='25'/><rect x='75' y='10' width='15' height='15' fill='white'/><rect x='78' y='13' width='9' height='9'/>
-                        <rect x='5' y='70' width='25' height='25'/><rect x='10' y='75' width='15' height='15' fill='white'/><rect x='13' y='78' width='9' height='9'/>
-                        <rect x='40' y='10' width='5' height='5'/><rect x='50' y='15' width='5' height='5'/><rect x='55' y='25' width='5' height='5'/>
-                        <rect x='40' y='40' width='5' height='5'/><rect x='50' y='45' width='5' height='5'/><rect x='60' y='50' width='5' height='5'/>
-                        <rect x='40' y='60' width='5' height='5'/><rect x='70' y='40' width='5' height='5'/><rect x='80' y='50' width='5' height='5'/>
-                        <rect x='45' y='75' width='5' height='5'/><rect x='55' y='85' width='5' height='5'/><rect x='70' y='75' width='5' height='5'/>
-                        <rect x='85' y='70' width='5' height='5'/><rect x='75' y='90' width='5' height='5'/>
-                        </g></svg>" />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-3">Escaneie o QR Code com seu app bancário</p>
+                    {pixData?.qr_code_base64 ? (
+                      <>
+                        <div className="inline-block bg-white p-3 rounded-xl">
+                          <img alt="QR Code PIX" className="h-56 w-56" src={`data:image/png;base64,${pixData.qr_code_base64}`} />
+                        </div>
+                        <div className="mt-4 text-left">
+                          <Label className="text-xs">Código copia e cola</Label>
+                          <div className="flex gap-2 mt-1">
+                            <Input readOnly value={pixData.qr_code || ""} className="font-mono text-xs" />
+                            <Button type="button" variant="outline" size="icon" onClick={copyPix}><Copy className="h-4 w-4" /></Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">Escaneie o QR Code ou cole o código no seu app bancário</p>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Clique em "Confirmar pedido" para gerar o QR Code PIX</p>
+                    )}
                   </div>
                 )}
 
@@ -275,28 +278,53 @@ function Checkout() {
                   <div className="space-y-4">
                     <div><Label>Número do cartão</Label><Input value={cartao.numero} onChange={(e) => setCartao({ ...cartao, numero: maskCardNumber(e.target.value) })} placeholder="0000 0000 0000 0000" /></div>
                     <div><Label>Nome no cartão</Label><Input value={cartao.nome} onChange={(e) => setCartao({ ...cartao, nome: e.target.value.toUpperCase() })} /></div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-3 gap-3">
                       <div><Label>Validade</Label><Input value={cartao.validade} onChange={(e) => setCartao({ ...cartao, validade: maskCardExp(e.target.value) })} placeholder="MM/AA" /></div>
                       <div><Label>CVV</Label><Input value={cartao.cvv} onChange={(e) => setCartao({ ...cartao, cvv: onlyDigits(e.target.value).slice(0, 4) })} placeholder="000" /></div>
+                      <div>
+                        <Label>Parcelas</Label>
+                        <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                          value={cartao.parcelas}
+                          onChange={(e) => setCartao({ ...cartao, parcelas: parseInt(e.target.value, 10) })}>
+                          {[1, 2, 3].map((n) => <option key={n} value={n}>{n}x de {brl(total / n)}</option>)}
+                        </select>
+                      </div>
                     </div>
                   </div>
                 )}
 
                 {pgto === "boleto" && (
                   <div className="rounded-xl border border-border p-6 bg-secondary/40">
-                    <p className="text-sm font-semibold mb-3">Código de barras (fictício)</p>
-                    <div className="bg-white p-4 rounded-lg font-mono text-xs break-all border border-border">
-                      34191.79001 01043.510047 91020.150008 9 87770026000
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-3">Vencimento em 3 dias úteis</p>
+                    {boletoData?.barcode ? (
+                      <>
+                        <p className="text-sm font-semibold mb-3">Código de barras</p>
+                        <div className="bg-white p-4 rounded-lg font-mono text-xs break-all border border-border">
+                          {boletoData.barcode}
+                        </div>
+                        {boletoData.boleto_url && (
+                          <Button asChild variant="outline" className="mt-3 w-full rounded-full">
+                            <a href={boletoData.boleto_url} target="_blank" rel="noopener noreferrer">Abrir boleto em PDF</a>
+                          </Button>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-3">Vencimento em 3 dias úteis</p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center">Clique em "Confirmar pedido" para gerar o boleto</p>
+                    )}
                   </div>
                 )}
 
                 <div className="flex gap-3 pt-4">
-                  <Button variant="outline" className="flex-1 rounded-full" onClick={() => setStep(2)}>Voltar</Button>
-                  <Button size="lg" disabled={saving} className="flex-1 rounded-full" onClick={finalizar}>
-                    {saving ? "Processando..." : `Confirmar pedido · ${brl(total)}`}
-                  </Button>
+                  <Button variant="outline" className="flex-1 rounded-full" onClick={() => setStep(2)} disabled={saving}>Voltar</Button>
+                  {!pixData && !boletoData ? (
+                    <Button size="lg" disabled={saving} className="flex-1 rounded-full" onClick={finalizar}>
+                      {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Processando...</> : `Confirmar pedido · ${brl(total)}`}
+                    </Button>
+                  ) : (
+                    <Button size="lg" className="flex-1 rounded-full" onClick={() => navigate({ to: "/conta" })}>
+                      Ver meus pedidos
+                    </Button>
+                  )}
                 </div>
               </>
             )}
