@@ -7,10 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
-import { brl, maskCep, maskCardNumber, maskCardExp, onlyDigits, calcFretePorCep } from "@/lib/format";
+import { brl, maskCep, maskCardNumber, maskCardExp, maskCpf, onlyDigits, calcFretePorCep } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Check, CreditCard, QrCode, Barcode } from "lucide-react";
+import { Check, CreditCard, QrCode, Barcode, Copy, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({ meta: [{ title: "Checkout — Farma Pro" }] }),
@@ -27,17 +27,19 @@ function Checkout() {
   const [step, setStep] = useState<Step>(1);
 
   const [endereco, setEndereco] = useState({
-    nome: "", cep: "", rua: "", numero: "", complemento: "", bairro: "", cidade: "", estado: "",
+    nome: "", cpf: "", cep: "", rua: "", numero: "", complemento: "", bairro: "", cidade: "", estado: "",
   });
   const [cepLoading, setCepLoading] = useState(false);
   const [frete, setFrete] = useState(0);
   const [pgto, setPgto] = useState<Pgto>("pix");
-  const [cartao, setCartao] = useState({ numero: "", nome: "", validade: "", cvv: "" });
+  const [cartao, setCartao] = useState({ numero: "", nome: "", validade: "", cvv: "", parcelas: 1 });
   const [saving, setSaving] = useState(false);
+  const [pixData, setPixData] = useState<{ qr_code_base64?: string; qr_code?: string } | null>(null);
+  const [boletoData, setBoletoData] = useState<{ barcode?: string; boleto_url?: string } | null>(null);
 
   useEffect(() => {
-    if (items.length === 0 && step !== 3) navigate({ to: "/carrinho" });
-  }, [items.length, step, navigate]);
+    if (items.length === 0 && step !== 3 && !pixData && !boletoData) navigate({ to: "/carrinho" });
+  }, [items.length, step, navigate, pixData, boletoData]);
 
   useEffect(() => {
     if (!user && step === 1) {
@@ -67,27 +69,89 @@ function Checkout() {
   const desconto = pgto === "pix" ? subtotal * 0.1 : 0;
   const total = subtotal + frete - desconto;
 
+  const callMP = async (payload: any) => {
+    const r = await fetch("/api/mercadopago/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const json = await r.json();
+    if (!r.ok) throw new Error(json?.error || "Falha no pagamento");
+    return json;
+  };
+
   const finalizar = async () => {
     if (!user) return;
+    if (!endereco.cpf || onlyDigits(endereco.cpf).length !== 11) {
+      toast.error("Informe um CPF válido"); return;
+    }
     setSaving(true);
-    const { data, error } = await supabase.from("pedidos").insert({
-      user_id: user.id,
-      nome_cliente: endereco.nome,
-      email: user.email!,
-      endereco: `${endereco.rua}, ${endereco.numero}${endereco.complemento ? " - " + endereco.complemento : ""} · ${endereco.bairro}`,
-      cep: endereco.cep,
-      cidade: endereco.cidade,
-      estado: endereco.estado,
-      itens: items as any,
-      subtotal, frete, desconto_pix: desconto, total,
-      forma_pagamento: pgto,
-      status: "confirmado",
-    }).select("id").single();
+    try {
+      const basePayer = { email: user.email!, nome: endereco.nome, cpf: endereco.cpf };
+      const baseAddress = {
+        cep: endereco.cep, rua: endereco.rua, numero: endereco.numero,
+        bairro: endereco.bairro, cidade: endereco.cidade, estado: endereco.estado,
+      };
 
-    setSaving(false);
-    if (error) { toast.error("Falha ao registrar pedido: " + error.message); return; }
-    clear();
-    navigate({ to: "/pedido/$id", params: { id: data.id } });
+      let mpResult: any = null;
+      let mpStatus = "pendente";
+
+      if (pgto === "pix") {
+        mpResult = await callMP({ method: "pix", amount: total, payer: basePayer, description: `Pedido Farma Pro` });
+        setPixData({ qr_code_base64: mpResult.qr_code_base64, qr_code: mpResult.qr_code });
+        mpStatus = mpResult.status === "approved" ? "pago" : "aguardando_pix";
+      } else if (pgto === "boleto") {
+        mpResult = await callMP({ method: "boleto", amount: total, payer: basePayer, address: baseAddress });
+        setBoletoData({ barcode: mpResult.barcode, boleto_url: mpResult.boleto_url });
+        mpStatus = "aguardando_boleto";
+      } else {
+        mpResult = await callMP({
+          method: "cartao", amount: total, payer: basePayer,
+          card: { numero: cartao.numero, nome: cartao.nome, validade: cartao.validade, cvv: cartao.cvv, parcelas: cartao.parcelas },
+        });
+        if (mpResult.status !== "approved") {
+          throw new Error(`Pagamento ${mpResult.status}: ${mpResult.status_detail || ""}`);
+        }
+        mpStatus = "pago";
+      }
+
+      const { data, error } = await supabase.from("pedidos").insert({
+        user_id: user.id,
+        nome_cliente: endereco.nome,
+        email: user.email!,
+        endereco: `${endereco.rua}, ${endereco.numero}${endereco.complemento ? " - " + endereco.complemento : ""} · ${endereco.bairro}`,
+        cep: endereco.cep,
+        cidade: endereco.cidade,
+        estado: endereco.estado,
+        itens: items as any,
+        subtotal, frete, desconto_pix: desconto, total,
+        forma_pagamento: pgto,
+        status: mpStatus === "pago" ? "confirmado" : mpStatus,
+      }).select("id").single();
+
+      if (error) throw error;
+
+      // Cartão = redireciona direto. PIX/Boleto = mantém na tela pra usuário ver o código.
+      if (pgto === "cartao") {
+        clear();
+        navigate({ to: "/pedido/$id", params: { id: data.id } });
+      } else {
+        toast.success(pgto === "pix" ? "PIX gerado! Escaneie o QR Code." : "Boleto gerado!");
+        // Limpa carrinho mas mantém na tela pra mostrar QR/boleto
+        clear();
+        (window as any).__pedidoId = data.id;
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Erro no pagamento");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyPix = () => {
+    if (!pixData?.qr_code) return;
+    navigator.clipboard.writeText(pixData.qr_code);
+    toast.success("Código PIX copiado!");
   };
 
   return (
@@ -124,6 +188,10 @@ function Checkout() {
                     <Input value={endereco.nome} onChange={(e) => setEndereco({ ...endereco, nome: e.target.value })} />
                   </div>
                   <div>
+                    <Label>CPF</Label>
+                    <Input value={endereco.cpf} onChange={(e) => setEndereco({ ...endereco, cpf: maskCpf(e.target.value) })} placeholder="000.000.000-00" />
+                  </div>
+                  <div>
                     <Label>CEP</Label>
                     <Input value={endereco.cep} onChange={(e) => {
                       const v = maskCep(e.target.value);
@@ -141,7 +209,7 @@ function Checkout() {
                 </div>
                 <Button
                   size="lg" className="w-full rounded-full"
-                  disabled={!endereco.nome || !endereco.cep || !endereco.rua || !endereco.numero || !endereco.cidade || !endereco.estado}
+                  disabled={!endereco.nome || !endereco.cpf || !endereco.cep || !endereco.rua || !endereco.numero || !endereco.cidade || !endereco.estado}
                   onClick={() => { if (!frete) setFrete(calcFretePorCep(endereco.cep)); setStep(2); }}
                 >Continuar para frete</Button>
               </>
@@ -186,20 +254,23 @@ function Checkout() {
                 {pgto === "pix" && (
                   <div className="rounded-xl border border-border p-6 text-center bg-secondary/40">
                     <p className="text-sm font-bold text-success mb-3">✓ 10% OFF aplicado automaticamente</p>
-                    <div className="inline-block bg-white p-3 rounded-xl">
-                      <img alt="QR Code PIX" className="h-44 w-44"
-                        src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='white'/><g fill='black'>
-                        <rect x='5' y='5' width='25' height='25'/><rect x='10' y='10' width='15' height='15' fill='white'/><rect x='13' y='13' width='9' height='9'/>
-                        <rect x='70' y='5' width='25' height='25'/><rect x='75' y='10' width='15' height='15' fill='white'/><rect x='78' y='13' width='9' height='9'/>
-                        <rect x='5' y='70' width='25' height='25'/><rect x='10' y='75' width='15' height='15' fill='white'/><rect x='13' y='78' width='9' height='9'/>
-                        <rect x='40' y='10' width='5' height='5'/><rect x='50' y='15' width='5' height='5'/><rect x='55' y='25' width='5' height='5'/>
-                        <rect x='40' y='40' width='5' height='5'/><rect x='50' y='45' width='5' height='5'/><rect x='60' y='50' width='5' height='5'/>
-                        <rect x='40' y='60' width='5' height='5'/><rect x='70' y='40' width='5' height='5'/><rect x='80' y='50' width='5' height='5'/>
-                        <rect x='45' y='75' width='5' height='5'/><rect x='55' y='85' width='5' height='5'/><rect x='70' y='75' width='5' height='5'/>
-                        <rect x='85' y='70' width='5' height='5'/><rect x='75' y='90' width='5' height='5'/>
-                        </g></svg>" />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-3">Escaneie o QR Code com seu app bancário</p>
+                    {pixData?.qr_code_base64 ? (
+                      <>
+                        <div className="inline-block bg-white p-3 rounded-xl">
+                          <img alt="QR Code PIX" className="h-56 w-56" src={`data:image/png;base64,${pixData.qr_code_base64}`} />
+                        </div>
+                        <div className="mt-4 text-left">
+                          <Label className="text-xs">Código copia e cola</Label>
+                          <div className="flex gap-2 mt-1">
+                            <Input readOnly value={pixData.qr_code || ""} className="font-mono text-xs" />
+                            <Button type="button" variant="outline" size="icon" onClick={copyPix}><Copy className="h-4 w-4" /></Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">Escaneie o QR Code ou cole o código no seu app bancário</p>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Clique em "Confirmar pedido" para gerar o QR Code PIX</p>
+                    )}
                   </div>
                 )}
 
@@ -207,28 +278,53 @@ function Checkout() {
                   <div className="space-y-4">
                     <div><Label>Número do cartão</Label><Input value={cartao.numero} onChange={(e) => setCartao({ ...cartao, numero: maskCardNumber(e.target.value) })} placeholder="0000 0000 0000 0000" /></div>
                     <div><Label>Nome no cartão</Label><Input value={cartao.nome} onChange={(e) => setCartao({ ...cartao, nome: e.target.value.toUpperCase() })} /></div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-3 gap-3">
                       <div><Label>Validade</Label><Input value={cartao.validade} onChange={(e) => setCartao({ ...cartao, validade: maskCardExp(e.target.value) })} placeholder="MM/AA" /></div>
                       <div><Label>CVV</Label><Input value={cartao.cvv} onChange={(e) => setCartao({ ...cartao, cvv: onlyDigits(e.target.value).slice(0, 4) })} placeholder="000" /></div>
+                      <div>
+                        <Label>Parcelas</Label>
+                        <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                          value={cartao.parcelas}
+                          onChange={(e) => setCartao({ ...cartao, parcelas: parseInt(e.target.value, 10) })}>
+                          {[1, 2, 3].map((n) => <option key={n} value={n}>{n}x de {brl(total / n)}</option>)}
+                        </select>
+                      </div>
                     </div>
                   </div>
                 )}
 
                 {pgto === "boleto" && (
                   <div className="rounded-xl border border-border p-6 bg-secondary/40">
-                    <p className="text-sm font-semibold mb-3">Código de barras (fictício)</p>
-                    <div className="bg-white p-4 rounded-lg font-mono text-xs break-all border border-border">
-                      34191.79001 01043.510047 91020.150008 9 87770026000
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-3">Vencimento em 3 dias úteis</p>
+                    {boletoData?.barcode ? (
+                      <>
+                        <p className="text-sm font-semibold mb-3">Código de barras</p>
+                        <div className="bg-white p-4 rounded-lg font-mono text-xs break-all border border-border">
+                          {boletoData.barcode}
+                        </div>
+                        {boletoData.boleto_url && (
+                          <Button asChild variant="outline" className="mt-3 w-full rounded-full">
+                            <a href={boletoData.boleto_url} target="_blank" rel="noopener noreferrer">Abrir boleto em PDF</a>
+                          </Button>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-3">Vencimento em 3 dias úteis</p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center">Clique em "Confirmar pedido" para gerar o boleto</p>
+                    )}
                   </div>
                 )}
 
                 <div className="flex gap-3 pt-4">
-                  <Button variant="outline" className="flex-1 rounded-full" onClick={() => setStep(2)}>Voltar</Button>
-                  <Button size="lg" disabled={saving} className="flex-1 rounded-full" onClick={finalizar}>
-                    {saving ? "Processando..." : `Confirmar pedido · ${brl(total)}`}
-                  </Button>
+                  <Button variant="outline" className="flex-1 rounded-full" onClick={() => setStep(2)} disabled={saving}>Voltar</Button>
+                  {!pixData && !boletoData ? (
+                    <Button size="lg" disabled={saving} className="flex-1 rounded-full" onClick={finalizar}>
+                      {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Processando...</> : `Confirmar pedido · ${brl(total)}`}
+                    </Button>
+                  ) : (
+                    <Button size="lg" className="flex-1 rounded-full" onClick={() => navigate({ to: "/conta" })}>
+                      Ver meus pedidos
+                    </Button>
+                  )}
                 </div>
               </>
             )}

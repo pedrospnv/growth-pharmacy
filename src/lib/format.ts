@@ -7,6 +7,11 @@ export const maskCardNumber = (v: string) =>
 export const maskCardExp = (v: string) =>
   v.replace(/\D/g, "").slice(0, 4).replace(/(\d{2})(\d)/, "$1/$2");
 export const onlyDigits = (v: string) => v.replace(/\D/g, "");
+export const maskCpf = (v: string) =>
+  v.replace(/\D/g, "").slice(0, 11)
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4");
 
 /**
  * Cálculo de frete baseado na tabela aproximada do Correios PAC
