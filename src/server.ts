@@ -40,17 +40,19 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   });
 }
 
+const g = globalThis as Record<string, string | undefined>;
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const cfEnv = (env ?? {}) as CloudflareEnv;
 
-      // Inject Cloudflare env vars into process.env so SSR code can read them
-      if (cfEnv.SUPABASE_URL) process.env.SUPABASE_URL = cfEnv.SUPABASE_URL;
-      if (cfEnv.SUPABASE_PUBLISHABLE_KEY) process.env.SUPABASE_PUBLISHABLE_KEY = cfEnv.SUPABASE_PUBLISHABLE_KEY;
-      if (cfEnv.VITE_SUPABASE_URL) process.env.VITE_SUPABASE_URL = cfEnv.VITE_SUPABASE_URL;
-      if (cfEnv.VITE_SUPABASE_PUBLISHABLE_KEY) process.env.VITE_SUPABASE_PUBLISHABLE_KEY = cfEnv.VITE_SUPABASE_PUBLISHABLE_KEY;
-      if (cfEnv.MERCADOPAGO_ACCESS_TOKEN) process.env.MERCADOPAGO_ACCESS_TOKEN = cfEnv.MERCADOPAGO_ACCESS_TOKEN;
+      // Inject into globalThis so SSR code can read them
+      if (cfEnv.SUPABASE_URL) g.SUPABASE_URL = cfEnv.SUPABASE_URL;
+      if (cfEnv.SUPABASE_PUBLISHABLE_KEY) g.SUPABASE_PUBLISHABLE_KEY = cfEnv.SUPABASE_PUBLISHABLE_KEY;
+      if (cfEnv.VITE_SUPABASE_URL) g.VITE_SUPABASE_URL = cfEnv.VITE_SUPABASE_URL;
+      if (cfEnv.VITE_SUPABASE_PUBLISHABLE_KEY) g.VITE_SUPABASE_PUBLISHABLE_KEY = cfEnv.VITE_SUPABASE_PUBLISHABLE_KEY;
+      if (cfEnv.MERCADOPAGO_ACCESS_TOKEN) g.MERCADOPAGO_ACCESS_TOKEN = cfEnv.MERCADOPAGO_ACCESS_TOKEN;
 
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
