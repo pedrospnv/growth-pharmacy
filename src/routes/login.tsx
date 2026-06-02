@@ -26,9 +26,23 @@ function Login() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha });
+    if (error) { setLoading(false); toast.error(error.message); return; }
+
+    if (data.user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("ativo")
+        .eq("id", data.user.id)
+        .maybeSingle();
+      if (profile && profile.ativo === false) {
+        await supabase.auth.signOut();
+        setLoading(false);
+        toast.error("Sua conta foi suspensa. Entre em contato com o suporte.");
+        return;
+      }
+    }
     setLoading(false);
-    if (error) { toast.error(error.message); return; }
     toast.success("Bem-vindo de volta!");
     navigate({ to: "/" });
   };
