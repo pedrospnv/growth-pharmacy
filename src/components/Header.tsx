@@ -26,7 +26,7 @@ export function Logo({ light = false }: { light?: boolean }) {
 }
 
 export function Header() {
-  const { user, isAdmin, signOut } = useAuth();
+  const { user, isAdmin, isFuncionario, signOut } = useAuth();
   const { count } = useCart();
   const navigate = useNavigate();
   const [q, setQ] = useState("");
