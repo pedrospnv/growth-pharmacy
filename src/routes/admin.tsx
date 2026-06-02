@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -14,7 +15,15 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { brl } from "@/lib/format";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Download, Package, ShoppingBag } from "lucide-react";
+import { Plus, Pencil, Trash2, Download, Package, ShoppingBag, Users, UserCog, Ban, Check } from "lucide-react";
+import {
+  createFuncionario,
+  updateFuncionario,
+  deleteFuncionario,
+  setAccountActive,
+  listFuncionarios,
+  listClientes,
+} from "@/lib/staff.functions";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "Admin — Farma Pro" }] }),
@@ -27,16 +36,16 @@ type Produto = {
 };
 
 function Admin() {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, isAdmin, isFuncionario, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (loading) return;
     if (!user) navigate({ to: "/login" });
-    else if (!isAdmin) { toast.error("Acesso restrito a administradores"); navigate({ to: "/" }); }
-  }, [user, isAdmin, loading, navigate]);
+    else if (!isAdmin && !isFuncionario) { toast.error("Acesso restrito"); navigate({ to: "/" }); }
+  }, [user, isAdmin, isFuncionario, loading, navigate]);
 
-  if (loading || !isAdmin) return <div className="min-h-screen grid place-items-center">Verificando acesso...</div>;
+  if (loading || (!isAdmin && !isFuncionario)) return <div className="min-h-screen grid place-items-center">Verificando acesso...</div>;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -44,15 +53,21 @@ function Admin() {
       <div className="container mx-auto px-4 py-10 flex-1">
         <div className="mb-8">
           <p className="text-xs uppercase tracking-[0.2em] text-primary font-bold">Painel</p>
-          <h1 className="font-display text-4xl font-extrabold mt-1">Admin Farma Pro</h1>
+          <h1 className="font-display text-4xl font-extrabold mt-1">
+            Admin Farma Pro {isFuncionario && !isAdmin && <span className="text-sm font-normal text-muted-foreground">(funcionário)</span>}
+          </h1>
         </div>
         <Tabs defaultValue="produtos">
-          <TabsList>
+          <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="produtos"><Package className="h-4 w-4 mr-2" />Produtos</TabsTrigger>
             <TabsTrigger value="pedidos"><ShoppingBag className="h-4 w-4 mr-2" />Pedidos</TabsTrigger>
+            {isAdmin && <TabsTrigger value="equipe"><UserCog className="h-4 w-4 mr-2" />Equipe</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="clientes"><Users className="h-4 w-4 mr-2" />Clientes</TabsTrigger>}
           </TabsList>
           <TabsContent value="produtos" className="mt-6"><ProdutosAdmin /></TabsContent>
           <TabsContent value="pedidos" className="mt-6"><PedidosAdmin /></TabsContent>
+          {isAdmin && <TabsContent value="equipe" className="mt-6"><EquipeAdmin /></TabsContent>}
+          {isAdmin && <TabsContent value="clientes" className="mt-6"><ClientesAdmin /></TabsContent>}
         </Tabs>
       </div>
       <Footer />
@@ -137,13 +152,10 @@ function ProdutosAdmin() {
         </Dialog>
       </div>
 
-      {/* Mobile: cards */}
       <div className="flex flex-col gap-3 md:hidden">
         {produtos.map((p) => (
           <div key={p.id} className="rounded-2xl border border-border bg-card p-4 flex gap-3">
-            {p.imagem_url && (
-              <img src={p.imagem_url} alt="" className="h-16 w-16 rounded-lg object-cover flex-shrink-0" />
-            )}
+            {p.imagem_url && <img src={p.imagem_url} alt="" className="h-16 w-16 rounded-lg object-cover flex-shrink-0" />}
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-sm leading-tight">{p.nome}</p>
               <p className="text-xs text-muted-foreground mt-0.5">{p.categoria}</p>
@@ -151,36 +163,20 @@ function ProdutosAdmin() {
               <p className="text-xs text-muted-foreground">Estoque: {p.estoque}</p>
             </div>
             <div className="flex flex-col gap-2 flex-shrink-0">
-              <Button variant="outline" size="sm" onClick={() => openEdit(p)} className="h-8 w-8 p-0 rounded-lg">
-                <Pencil className="h-3.5 w-3.5" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => remove(p.id)} className="h-8 w-8 p-0 rounded-lg border-destructive">
-                <Trash2 className="h-3.5 w-3.5 text-destructive" />
-              </Button>
+              <Button variant="outline" size="sm" onClick={() => openEdit(p)} className="h-8 w-8 p-0 rounded-lg"><Pencil className="h-3.5 w-3.5" /></Button>
+              <Button variant="outline" size="sm" onClick={() => remove(p.id)} className="h-8 w-8 p-0 rounded-lg border-destructive"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Desktop: tabela */}
       <div className="hidden md:block rounded-2xl border border-border bg-card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr className="text-left">
-              <th className="p-3">Produto</th>
-              <th className="p-3">Categoria</th>
-              <th className="p-3">Preço</th>
-              <th className="p-3">Estoque</th>
-              <th className="p-3"></th>
-            </tr>
-          </thead>
+          <thead className="bg-muted/50"><tr className="text-left"><th className="p-3">Produto</th><th className="p-3">Categoria</th><th className="p-3">Preço</th><th className="p-3">Estoque</th><th className="p-3"></th></tr></thead>
           <tbody>
             {produtos.map((p) => (
               <tr key={p.id} className="border-t border-border">
-                <td className="p-3 flex items-center gap-3">
-                  {p.imagem_url && <img src={p.imagem_url} alt="" className="h-10 w-10 rounded object-cover" />}
-                  <span className="font-medium">{p.nome}</span>
-                </td>
+                <td className="p-3 flex items-center gap-3">{p.imagem_url && <img src={p.imagem_url} alt="" className="h-10 w-10 rounded object-cover" />}<span className="font-medium">{p.nome}</span></td>
                 <td className="p-3 text-muted-foreground">{p.categoria}</td>
                 <td className="p-3 font-semibold">{brl(Number(p.preco))}</td>
                 <td className="p-3">{p.estoque}</td>
@@ -209,17 +205,11 @@ function PedidosAdmin() {
   const exportar = () => {
     const rows = pedidos.map((p: any) => ({
       Data: new Date(p.criado_em).toLocaleString("pt-BR"),
-      Nome: p.nome_cliente,
-      "E-mail": p.email,
-      CEP: p.cep,
-      Endereço: p.endereco,
-      Cidade: p.cidade,
-      Estado: p.estado,
+      Nome: p.nome_cliente, "E-mail": p.email, CEP: p.cep, Endereço: p.endereco,
+      Cidade: p.cidade, Estado: p.estado,
       Itens: (p.itens as any[]).map((i) => `${i.quantidade}× ${i.nome}`).join(" | "),
-      Subtotal: Number(p.subtotal),
-      Frete: Number(p.frete),
-      "Desconto PIX": Number(p.desconto_pix),
-      Total: Number(p.total),
+      Subtotal: Number(p.subtotal), Frete: Number(p.frete),
+      "Desconto PIX": Number(p.desconto_pix), Total: Number(p.total),
       "Forma de Pagamento": p.forma_pagamento,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -232,54 +222,31 @@ function PedidosAdmin() {
     <div>
       <div className="flex justify-between mb-4">
         <p className="text-sm text-muted-foreground">{pedidos.length} pedidos</p>
-        <Button onClick={exportar} className="rounded-full gap-2">
-          <Download className="h-4 w-4" /> Exportar (.xlsx)
-        </Button>
+        <Button onClick={exportar} className="rounded-full gap-2"><Download className="h-4 w-4" /> Exportar (.xlsx)</Button>
       </div>
 
-      {/* Mobile: cards de pedido */}
       <div className="flex flex-col gap-3 md:hidden">
         {pedidos.map((p: any) => (
           <div key={p.id} className="rounded-2xl border border-border bg-card p-4 space-y-2">
             <div className="flex justify-between items-start">
-              <div>
-                <p className="font-semibold text-sm">{p.nome_cliente}</p>
-                <p className="text-xs text-muted-foreground">{p.email}</p>
-              </div>
+              <div><p className="font-semibold text-sm">{p.nome_cliente}</p><p className="text-xs text-muted-foreground">{p.email}</p></div>
               <span className="text-xs bg-muted px-2 py-1 rounded-full capitalize">{p.forma_pagamento}</span>
             </div>
-            <div className="text-xs text-muted-foreground">
-              {p.cidade}/{p.estado} · CEP {p.cep}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {(p.itens as any[]).length} itens · {new Date(p.criado_em).toLocaleDateString("pt-BR")}
-            </div>
+            <div className="text-xs text-muted-foreground">{p.cidade}/{p.estado} · CEP {p.cep}</div>
+            <div className="text-xs text-muted-foreground">{(p.itens as any[]).length} itens · {new Date(p.criado_em).toLocaleDateString("pt-BR")}</div>
             <div className="text-base font-bold text-primary">{brl(Number(p.total))}</div>
           </div>
         ))}
       </div>
 
-      {/* Desktop: tabela */}
       <div className="hidden md:block rounded-2xl border border-border bg-card overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr className="text-left">
-              <th className="p-3">Data</th>
-              <th className="p-3">Cliente</th>
-              <th className="p-3">Cidade/UF</th>
-              <th className="p-3">Itens</th>
-              <th className="p-3">Total</th>
-              <th className="p-3">Pgto</th>
-            </tr>
-          </thead>
+          <thead className="bg-muted/50"><tr className="text-left"><th className="p-3">Data</th><th className="p-3">Cliente</th><th className="p-3">Cidade/UF</th><th className="p-3">Itens</th><th className="p-3">Total</th><th className="p-3">Pgto</th></tr></thead>
           <tbody>
             {pedidos.map((p: any) => (
               <tr key={p.id} className="border-t border-border">
                 <td className="p-3 text-xs">{new Date(p.criado_em).toLocaleDateString("pt-BR")}</td>
-                <td className="p-3">
-                  <p className="font-semibold">{p.nome_cliente}</p>
-                  <p className="text-xs text-muted-foreground">{p.email}</p>
-                </td>
+                <td className="p-3"><p className="font-semibold">{p.nome_cliente}</p><p className="text-xs text-muted-foreground">{p.email}</p></td>
                 <td className="p-3 text-xs">{p.cidade}/{p.estado}</td>
                 <td className="p-3 text-xs">{(p.itens as any[]).length} itens</td>
                 <td className="p-3 font-semibold text-primary">{brl(Number(p.total))}</td>
@@ -289,6 +256,168 @@ function PedidosAdmin() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function EquipeAdmin() {
+  const qc = useQueryClient();
+  const list = useServerFn(listFuncionarios);
+  const create = useServerFn(createFuncionario);
+  const update = useServerFn(updateFuncionario);
+  const del = useServerFn(deleteFuncionario);
+  const setActive = useServerFn(setAccountActive);
+
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<{ id: string; nome: string | null; email: string | null } | null>(null);
+  const [form, setForm] = useState({ nome: "", email: "", senha: "" });
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-funcionarios"],
+    queryFn: () => list(),
+  });
+  const funcionarios = data?.funcionarios ?? [];
+
+  const openNew = () => { setEditing(null); setForm({ nome: "", email: "", senha: "" }); setOpen(true); };
+  const openEdit = (f: any) => { setEditing(f); setForm({ nome: f.nome ?? "", email: f.email ?? "", senha: "" }); setOpen(true); };
+
+  const save = async () => {
+    try {
+      if (editing) {
+        await update({ data: { id: editing.id, nome: form.nome, senha: form.senha || undefined } });
+        toast.success("Funcionário atualizado");
+      } else {
+        if (!form.senha || form.senha.length < 6) { toast.error("Senha deve ter 6+ caracteres"); return; }
+        await create({ data: { nome: form.nome, email: form.email, senha: form.senha } });
+        toast.success("Funcionário criado");
+      }
+      setOpen(false);
+      qc.invalidateQueries({ queryKey: ["admin-funcionarios"] });
+    } catch (e: any) { toast.error(e.message ?? "Erro"); }
+  };
+
+  const toggle = async (id: string, ativo: boolean) => {
+    try {
+      await setActive({ data: { id, ativo: !ativo } });
+      toast.success(ativo ? "Conta desativada" : "Conta reativada");
+      qc.invalidateQueries({ queryKey: ["admin-funcionarios"] });
+    } catch (e: any) { toast.error(e.message ?? "Erro"); }
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("Excluir funcionário definitivamente?")) return;
+    try {
+      await del({ data: { id } });
+      toast.success("Excluído");
+      qc.invalidateQueries({ queryKey: ["admin-funcionarios"] });
+    } catch (e: any) { toast.error(e.message ?? "Erro"); }
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between mb-4">
+        <p className="text-sm text-muted-foreground">{funcionarios.length} funcionários</p>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={openNew} className="rounded-full gap-2"><Plus className="h-4 w-4" /> Novo funcionário</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{editing ? "Editar funcionário" : "Cadastrar funcionário"}</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
+              <div><Label>E-mail</Label><Input type="email" disabled={!!editing} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+              <div>
+                <Label>{editing ? "Nova senha (opcional)" : "Senha temporária"}</Label>
+                <Input type="text" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} />
+              </div>
+              <Button onClick={save} className="w-full">{editing ? "Salvar" : "Criar"}</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {isLoading ? <p className="text-sm text-muted-foreground">Carregando...</p> : (
+        <div className="rounded-2xl border border-border bg-card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50"><tr className="text-left"><th className="p-3">Nome</th><th className="p-3">E-mail</th><th className="p-3">Status</th><th className="p-3 text-right">Ações</th></tr></thead>
+            <tbody>
+              {funcionarios.map((f) => (
+                <tr key={f.id} className="border-t border-border">
+                  <td className="p-3 font-medium">{f.nome ?? "—"}</td>
+                  <td className="p-3 text-muted-foreground">{f.email}</td>
+                  <td className="p-3">
+                    <span className={`text-xs px-2 py-1 rounded-full ${f.ativo ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}>
+                      {f.ativo ? "Ativo" : "Suspenso"}
+                    </span>
+                  </td>
+                  <td className="p-3 text-right">
+                    <Button variant="ghost" size="sm" onClick={() => openEdit(f)}><Pencil className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="sm" onClick={() => toggle(f.id, f.ativo)}>
+                      {f.ativo ? <Ban className="h-4 w-4 text-destructive" /> : <Check className="h-4 w-4 text-primary" />}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => remove(f.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  </td>
+                </tr>
+              ))}
+              {!funcionarios.length && <tr><td colSpan={4} className="p-6 text-center text-sm text-muted-foreground">Nenhum funcionário cadastrado</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ClientesAdmin() {
+  const qc = useQueryClient();
+  const list = useServerFn(listClientes);
+  const setActive = useServerFn(setAccountActive);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-clientes"],
+    queryFn: () => list(),
+  });
+  const clientes = data?.clientes ?? [];
+
+  const toggle = async (id: string, ativo: boolean) => {
+    try {
+      await setActive({ data: { id, ativo: !ativo } });
+      toast.success(ativo ? "Cliente desativado" : "Cliente reativado");
+      qc.invalidateQueries({ queryKey: ["admin-clientes"] });
+    } catch (e: any) { toast.error(e.message ?? "Erro"); }
+  };
+
+  return (
+    <div>
+      <p className="text-sm text-muted-foreground mb-4">{clientes.length} clientes</p>
+      {isLoading ? <p className="text-sm text-muted-foreground">Carregando...</p> : (
+        <div className="rounded-2xl border border-border bg-card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50"><tr className="text-left"><th className="p-3">Nome</th><th className="p-3">E-mail</th><th className="p-3">Cadastro</th><th className="p-3">Pedidos</th><th className="p-3">Status</th><th className="p-3 text-right">Ações</th></tr></thead>
+            <tbody>
+              {clientes.map((c: any) => (
+                <tr key={c.id} className="border-t border-border">
+                  <td className="p-3 font-medium">{c.nome ?? "—"}</td>
+                  <td className="p-3 text-muted-foreground">{c.email}</td>
+                  <td className="p-3 text-xs">{new Date(c.created_at).toLocaleDateString("pt-BR")}</td>
+                  <td className="p-3 font-semibold">{c.pedidos_count}</td>
+                  <td className="p-3">
+                    <span className={`text-xs px-2 py-1 rounded-full ${c.ativo ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}>
+                      {c.ativo ? "Ativo" : "Suspenso"}
+                    </span>
+                  </td>
+                  <td className="p-3 text-right">
+                    <Button variant="ghost" size="sm" onClick={() => toggle(c.id, c.ativo)}>
+                      {c.ativo ? <Ban className="h-4 w-4 text-destructive" /> : <Check className="h-4 w-4 text-primary" />}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+              {!clientes.length && <tr><td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">Nenhum cliente cadastrado</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
