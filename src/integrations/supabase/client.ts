@@ -5,7 +5,7 @@ import type { Database } from './types';
 function createSupabaseClient() {
   // Browser: import.meta.env (Vite build-time). SSR/Workers: process.env or globalThis
   // (injected by src/server.ts from the Cloudflare Workers `env` argument).
-  const g = globalThis as Record<string, string | undefined>;
+  const g = globalThis as unknown as Record<string, string | undefined>;
   const SUPABASE_URL =
     import.meta.env.VITE_SUPABASE_URL ||
     (typeof process !== 'undefined' ? process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL : undefined) ||
