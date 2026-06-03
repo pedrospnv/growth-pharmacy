@@ -64,6 +64,16 @@ function injectEnv(env: CloudflareEnv) {
   set("VITE_SUPABASE_URL", env.VITE_SUPABASE_URL ?? env.SUPABASE_URL);
   set("VITE_SUPABASE_PUBLISHABLE_KEY", env.VITE_SUPABASE_PUBLISHABLE_KEY ?? env.SUPABASE_PUBLISHABLE_KEY);
   set("MERCADOPAGO_ACCESS_TOKEN", env.MERCADOPAGO_ACCESS_TOKEN);
+
+  // Diagnóstico (aparece nos logs do Worker, sem vazar valores)
+  if (!pEnv.SUPABASE_SERVICE_ROLE_KEY) {
+    console.warn(
+      "[env] SUPABASE_SERVICE_ROLE_KEY ausente — operações admin (criar funcionário, suspender conta, listar clientes, webhook Mercado Pago) falharão. Configure em Cloudflare → Worker → Settings → Variables and Secrets como Secret.",
+    );
+  }
+  if (!pEnv.MERCADOPAGO_ACCESS_TOKEN) {
+    console.warn("[env] MERCADOPAGO_ACCESS_TOKEN ausente — checkout falhará.");
+  }
 }
 
 export default {
