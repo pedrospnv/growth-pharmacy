@@ -119,7 +119,7 @@ function Home() {
               <div className="grid h-12 w-12 place-items-center rounded-lg bg-white text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                 <Icon className="h-6 w-6" strokeWidth={1.75} />
               </div>
-              <p className="text-xs md:text-sm font-semibold text-primary text-center leading-tight">{nome}</p>
+              <p className="text-[11px] md:text-sm font-semibold text-primary text-center leading-tight break-words w-full">{nome}</p>
             </Link>
           ))}
         </div>
@@ -144,10 +144,10 @@ function Home() {
       {/* OFERTAS BANNER */}
       {ofertas.length > 0 && (
         <section className="container mx-auto px-4 py-16">
-          <div className="rounded-2xl bg-primary text-white p-8 md:p-12 grid md:grid-cols-2 gap-8 items-center overflow-hidden">
+          <div className="rounded-2xl bg-primary text-white p-6 md:p-12 grid md:grid-cols-2 gap-8 items-center overflow-hidden">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] font-bold text-amber">Ofertas da semana</p>
-              <h2 className="font-display text-3xl md:text-5xl font-black mt-3 text-balance">
+              <h2 className="font-display text-2xl sm:text-3xl md:text-5xl font-black mt-3 text-balance leading-tight">
                 Até 30% OFF em<br />dermocosméticos
               </h2>
               <p className="mt-4 text-white/75">Descontos exclusivos por tempo limitado.</p>

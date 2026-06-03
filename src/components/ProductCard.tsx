@@ -52,11 +52,11 @@ export function ProductCard({ p }: { p: Produto }) {
         <div className="p-4 flex flex-col gap-2 flex-1">
           <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">{p.categoria}</p>
           <h3 className="font-display text-sm font-semibold leading-snug line-clamp-2 text-primary min-h-10">{p.nome}</h3>
-          <div className="mt-auto flex flex-col">
+          <div className="mt-auto flex flex-col leading-tight">
             {disc > 0 && (
-              <span className="text-xs line-through text-muted-foreground">{brl(p.preco)}</span>
+              <span className="text-[11px] line-through text-muted-foreground">{brl(p.preco)}</span>
             )}
-            <span className="font-display text-xl font-extrabold text-primary leading-tight">{brl(finalPrice)}</span>
+            <span className="font-display text-base md:text-xl font-extrabold text-primary break-words">{brl(finalPrice)}</span>
           </div>
         </div>
       </Link>
