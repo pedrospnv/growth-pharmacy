@@ -119,7 +119,7 @@ function Home() {
               <div className="grid h-12 w-12 place-items-center rounded-lg bg-white text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                 <Icon className="h-6 w-6" strokeWidth={1.75} />
               </div>
-              <p className="text-xs md:text-sm font-semibold text-primary text-center leading-tight">{nome}</p>
+              <p className="text-[11px] md:text-sm font-semibold text-primary text-center leading-tight break-words w-full">{nome}</p>
             </Link>
           ))}
         </div>
