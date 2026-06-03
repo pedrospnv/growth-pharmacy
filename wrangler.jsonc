@@ -7,6 +7,7 @@
   "compatibility_flags": ["nodejs_compat"],
   "assets": { "directory": "dist/client" },
   "vars": {
-  "SUPABASE_URL": "https://jqdmsbjugjgztjfdfcdf.supabase.co",
-  "SUPABASE_PUBLISHABLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxZG1zYmp1Z2pnenRqZmRmY2RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNzM4MTgsImV4cCI6MjA5NTY0OTgxOH0.PpAAxA8RmURfOfenQaGs6qE9AG9Z8ZnejEl3XTwDYZQ"
+    "SUPABASE_URL": "https://jqdmsbjugjgztjfdfcdf.supabase.co",
+    "SUPABASE_PUBLISHABLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxZG1zYmp1Z2pnenRqZmRmY2RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNzM4MTgsImV4cCI6MjA5NTY0OTgxOH0.PpAAxA8RmURfOfenQaGs6qE9AG9Z8ZnejEl3XTwDYZQ"
+  }
 }
