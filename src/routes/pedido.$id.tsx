@@ -3,9 +3,22 @@ import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Truck, ExternalLink } from "lucide-react";
+
+const STATUS_INFO: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; className?: string }> = {
+  pendente: { label: "Pendente", variant: "outline", className: "border-yellow-500 text-yellow-700 dark:text-yellow-400" },
+  aguardando_pagamento: { label: "Aguardando pagamento", variant: "outline", className: "border-yellow-500 text-yellow-700 dark:text-yellow-400" },
+  pago: { label: "Pago", variant: "default", className: "bg-blue-600 hover:bg-blue-600" },
+  processando: { label: "Processando", variant: "default", className: "bg-blue-600 hover:bg-blue-600" },
+  em_preparacao: { label: "Em preparação", variant: "default", className: "bg-indigo-600 hover:bg-indigo-600" },
+  enviado: { label: "Enviado", variant: "default", className: "bg-purple-600 hover:bg-purple-600" },
+  a_caminho: { label: "A caminho", variant: "default", className: "bg-purple-600 hover:bg-purple-600" },
+  entregue: { label: "Entregue", variant: "default", className: "bg-success hover:bg-success" },
+  cancelado: { label: "Cancelado", variant: "destructive" },
+};
 
 export const Route = createFileRoute("/pedido/$id")({
   component: Pedido,
