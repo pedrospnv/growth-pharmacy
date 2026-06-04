@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           cep: string
           cidade: string
+          codigo_rastreio: string | null
           criado_em: string
           desconto_pix: number
           email: string
@@ -36,6 +37,7 @@ export type Database = {
         Insert: {
           cep: string
           cidade: string
+          codigo_rastreio?: string | null
           criado_em?: string
           desconto_pix?: number
           email: string
@@ -54,6 +56,7 @@ export type Database = {
         Update: {
           cep?: string
           cidade?: string
+          codigo_rastreio?: string | null
           criado_em?: string
           desconto_pix?: number
           email?: string
