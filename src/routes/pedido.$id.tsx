@@ -50,6 +50,30 @@ function Pedido() {
           <h1 className="font-display text-4xl font-extrabold">Pedido confirmado!</h1>
           <p className="text-muted-foreground mt-2">Recebemos seu pedido e ele já está em processamento.</p>
           <p className="text-xs mt-3 text-muted-foreground">Código: <span className="font-mono">{p.id.slice(0, 8).toUpperCase()}</span></p>
+          {(() => {
+            const info = STATUS_INFO[p.status] ?? { label: p.status, variant: "secondary" as const };
+            return (
+              <div className="mt-4 flex justify-center">
+                <Badge variant={info.variant} className={`text-sm px-3 py-1 ${info.className ?? ""}`}>{info.label}</Badge>
+              </div>
+            );
+          })()}
+          {(p as any).codigo_rastreio && (
+            <div className="mt-5 rounded-2xl border-2 border-primary/30 bg-primary/5 p-4 text-left">
+              <div className="flex items-center gap-2 text-primary font-bold text-sm">
+                <Truck className="h-4 w-4" /> Código de rastreio
+              </div>
+              <p className="font-mono text-lg font-bold mt-1 break-all">{(p as any).codigo_rastreio}</p>
+              <a
+                href={`https://www.linkcorreios.com.br/?id=${encodeURIComponent((p as any).codigo_rastreio)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 mt-2 text-sm text-primary hover:underline font-semibold"
+              >
+                Rastrear nos Correios <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </div>
+          )}
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
