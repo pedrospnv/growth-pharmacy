@@ -193,7 +193,21 @@ function ProdutosAdmin() {
   );
 }
 
+const STATUS_PAGOS = ["pago", "em_preparacao", "a_caminho", "entregue", "cancelado"] as const;
+const STATUS_LABELS: Record<string, string> = {
+  pendente: "Pendente",
+  aguardando_pagamento: "Aguardando pagamento",
+  pago: "Pago",
+  processando: "Processando",
+  em_preparacao: "Em preparação",
+  enviado: "Enviado",
+  a_caminho: "A caminho",
+  entregue: "Entregue",
+  cancelado: "Cancelado",
+};
+
 function PedidosAdmin() {
+  const qc = useQueryClient();
   const { data: pedidos = [] } = useQuery({
     queryKey: ["admin-pedidos"],
     queryFn: async () => {
@@ -201,6 +215,9 @@ function PedidosAdmin() {
       return data ?? [];
     },
   });
+
+  const aguardando = pedidos.filter((p: any) => ["pendente", "aguardando_pagamento"].includes(p.status));
+  const pagos = pedidos.filter((p: any) => !["pendente", "aguardando_pagamento"].includes(p.status));
 
   const exportar = () => {
     const rows = pedidos.map((p: any) => ({
@@ -211,6 +228,8 @@ function PedidosAdmin() {
       Subtotal: Number(p.subtotal), Frete: Number(p.frete),
       "Desconto PIX": Number(p.desconto_pix), Total: Number(p.total),
       "Forma de Pagamento": p.forma_pagamento,
+      Status: STATUS_LABELS[p.status] ?? p.status,
+      "Código de Rastreio": (p as any).codigo_rastreio ?? "",
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -218,43 +237,126 @@ function PedidosAdmin() {
     XLSX.writeFile(wb, `farmapro-pedidos-${new Date().toISOString().slice(0,10)}.xlsx`);
   };
 
+  const marcarPago = async (id: string) => {
+    const { error } = await supabase.from("pedidos").update({ status: "pago" }).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Pedido marcado como pago");
+    qc.invalidateQueries({ queryKey: ["admin-pedidos"] });
+  };
+
   return (
     <div>
-      <div className="flex justify-between mb-4">
-        <p className="text-sm text-muted-foreground">{pedidos.length} pedidos</p>
+      <div className="flex justify-between mb-4 gap-3 flex-wrap">
+        <p className="text-sm text-muted-foreground">{pedidos.length} pedidos no total</p>
         <Button onClick={exportar} className="rounded-full gap-2"><Download className="h-4 w-4" /> Exportar (.xlsx)</Button>
       </div>
 
-      <div className="flex flex-col gap-3 md:hidden">
-        {pedidos.map((p: any) => (
-          <div key={p.id} className="rounded-2xl border border-border bg-card p-4 space-y-2">
-            <div className="flex justify-between items-start">
-              <div><p className="font-semibold text-sm">{p.nome_cliente}</p><p className="text-xs text-muted-foreground">{p.email}</p></div>
-              <span className="text-xs bg-muted px-2 py-1 rounded-full capitalize">{p.forma_pagamento}</span>
+      <Tabs defaultValue="aguardando">
+        <TabsList>
+          <TabsTrigger value="aguardando">Aguardando pagamento ({aguardando.length})</TabsTrigger>
+          <TabsTrigger value="pagos">Pagos ({pagos.length})</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="aguardando" className="mt-4">
+          {aguardando.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">Nenhum pedido aguardando pagamento.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {aguardando.map((p: any) => (
+                <div key={p.id} className="rounded-2xl border border-border bg-card p-4 space-y-2">
+                  <div className="flex justify-between items-start gap-3 flex-wrap">
+                    <div>
+                      <p className="font-semibold text-sm">{p.nome_cliente}</p>
+                      <p className="text-xs text-muted-foreground">{p.email}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{new Date(p.criado_em).toLocaleString("pt-BR")} · {(p.itens as any[]).length} itens · {p.cidade}/{p.estado}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-base font-bold text-primary">{brl(Number(p.total))}</div>
+                      <span className="text-xs bg-muted px-2 py-1 rounded-full capitalize">{p.forma_pagamento}</span>
+                    </div>
+                  </div>
+                  <Button size="sm" onClick={() => marcarPago(p.id)} className="rounded-full gap-2">
+                    <Check className="h-3.5 w-3.5" /> Marcar como pago
+                  </Button>
+                </div>
+              ))}
             </div>
-            <div className="text-xs text-muted-foreground">{p.cidade}/{p.estado} · CEP {p.cep}</div>
-            <div className="text-xs text-muted-foreground">{(p.itens as any[]).length} itens · {new Date(p.criado_em).toLocaleDateString("pt-BR")}</div>
-            <div className="text-base font-bold text-primary">{brl(Number(p.total))}</div>
-          </div>
-        ))}
+          )}
+        </TabsContent>
+
+        <TabsContent value="pagos" className="mt-4">
+          {pagos.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">Nenhum pedido pago.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {pagos.map((p: any) => (
+                <PedidoPagoCard key={p.id} pedido={p} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function PedidoPagoCard({ pedido }: { pedido: any }) {
+  const qc = useQueryClient();
+  const [status, setStatus] = useState<string>(pedido.status);
+  const [rastreio, setRastreio] = useState<string>(pedido.codigo_rastreio ?? "");
+  const [saving, setSaving] = useState(false);
+
+  const updateStatus = async (novo: string) => {
+    setStatus(novo);
+    const { error } = await supabase.from("pedidos").update({ status: novo }).eq("id", pedido.id);
+    if (error) { toast.error(error.message); setStatus(pedido.status); return; }
+    toast.success("Status atualizado");
+    qc.invalidateQueries({ queryKey: ["admin-pedidos"] });
+  };
+
+  const saveRastreio = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("pedidos").update({ codigo_rastreio: rastreio.trim() || null } as any).eq("id", pedido.id);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Código de rastreio salvo");
+    qc.invalidateQueries({ queryKey: ["admin-pedidos"] });
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+      <div className="flex justify-between items-start gap-3 flex-wrap">
+        <div>
+          <p className="font-semibold text-sm">{pedido.nome_cliente}</p>
+          <p className="text-xs text-muted-foreground">{pedido.email}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            #{pedido.id.slice(0, 8).toUpperCase()} · {new Date(pedido.criado_em).toLocaleString("pt-BR")} · {(pedido.itens as any[]).length} itens · {pedido.cidade}/{pedido.estado}
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="text-base font-bold text-primary">{brl(Number(pedido.total))}</div>
+          <span className="text-xs bg-muted px-2 py-1 rounded-full capitalize">{pedido.forma_pagamento}</span>
+        </div>
       </div>
 
-      <div className="hidden md:block rounded-2xl border border-border bg-card overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50"><tr className="text-left"><th className="p-3">Data</th><th className="p-3">Cliente</th><th className="p-3">Cidade/UF</th><th className="p-3">Itens</th><th className="p-3">Total</th><th className="p-3">Pgto</th></tr></thead>
-          <tbody>
-            {pedidos.map((p: any) => (
-              <tr key={p.id} className="border-t border-border">
-                <td className="p-3 text-xs">{new Date(p.criado_em).toLocaleDateString("pt-BR")}</td>
-                <td className="p-3"><p className="font-semibold">{p.nome_cliente}</p><p className="text-xs text-muted-foreground">{p.email}</p></td>
-                <td className="p-3 text-xs">{p.cidade}/{p.estado}</td>
-                <td className="p-3 text-xs">{(p.itens as any[]).length} itens</td>
-                <td className="p-3 font-semibold text-primary">{brl(Number(p.total))}</td>
-                <td className="p-3 capitalize text-xs">{p.forma_pagamento}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="grid sm:grid-cols-2 gap-3 pt-2 border-t border-border">
+        <div>
+          <Label className="text-xs">Status</Label>
+          <select
+            className="w-full h-9 mt-1 rounded-md border border-input bg-background px-3 text-sm"
+            value={status}
+            onChange={(e) => updateStatus(e.target.value)}
+          >
+            {STATUS_PAGOS.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+          </select>
+        </div>
+        <div>
+          <Label className="text-xs">Código de rastreio</Label>
+          <div className="flex gap-2 mt-1">
+            <Input value={rastreio} onChange={(e) => setRastreio(e.target.value)} placeholder="Ex.: BR123456789BR" className="h-9" />
+            <Button size="sm" onClick={saveRastreio} disabled={saving} className="h-9">Salvar</Button>
+          </div>
+        </div>
       </div>
     </div>
   );
