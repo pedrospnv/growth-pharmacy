@@ -62,7 +62,7 @@ async function assertAdmin(userId: string) {
 }
 
 export const createFuncionario = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([attachBearer, requireAdmin])
   .inputValidator((input) =>
     z.object({
       nome: z.string().min(1).max(120),
@@ -93,7 +93,7 @@ export const createFuncionario = createServerFn({ method: "POST" })
   });
 
 export const updateFuncionario = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([attachBearer, requireAdmin])
   .inputValidator((input) =>
     z.object({
       id: z.string().uuid(),
@@ -117,7 +117,7 @@ export const updateFuncionario = createServerFn({ method: "POST" })
   });
 
 export const setAccountActive = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([attachBearer, requireAdmin])
   .inputValidator((input) =>
     z.object({
       id: z.string().uuid(),
@@ -139,7 +139,7 @@ export const setAccountActive = createServerFn({ method: "POST" })
   });
 
 export const listFuncionarios = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([attachBearer, requireAdmin])
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
     const { data: roles, error } = await supabaseAdmin
@@ -158,7 +158,7 @@ export const listFuncionarios = createServerFn({ method: "GET" })
   });
 
 export const listClientes = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([attachBearer, requireAdmin])
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
     // Clientes = users without admin/funcionario role
@@ -191,7 +191,7 @@ export const listClientes = createServerFn({ method: "GET" })
   });
 
 export const deleteFuncionario = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([attachBearer, requireAdmin])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
