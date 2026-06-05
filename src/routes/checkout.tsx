@@ -20,6 +20,9 @@ export const Route = createFileRoute("/checkout")({
 type Step = 1 | 2 | 3;
 type Pgto = "pix" | "cartao" | "boleto";
 
+// Temporário: frete grátis para testes
+const FRETE_GRATIS_TESTE = true;
+
 function Checkout() {
   const { items, subtotal, clear } = useCart();
   const { user } = useAuth();
@@ -60,7 +63,7 @@ function Checkout() {
           ...e, rua: data.logradouro || e.rua, bairro: data.bairro || e.bairro,
           cidade: data.localidade || e.cidade, estado: data.uf || e.estado,
         }));
-        setFrete(calcFretePorCep(d));
+        setFrete(FRETE_GRATIS_TESTE ? 0 : calcFretePorCep(d));
       } else toast.error("CEP não encontrado");
     } catch { toast.error("Falha ao buscar CEP"); }
     setCepLoading(false);
@@ -210,7 +213,7 @@ function Checkout() {
                 <Button
                   size="lg" className="w-full rounded-full"
                   disabled={!endereco.nome || !endereco.cpf || !endereco.cep || !endereco.rua || !endereco.numero || !endereco.cidade || !endereco.estado}
-                  onClick={() => { if (!frete) setFrete(calcFretePorCep(endereco.cep)); setStep(2); }}
+                  onClick={() => { if (!FRETE_GRATIS_TESTE && !frete) setFrete(calcFretePorCep(endereco.cep)); if (FRETE_GRATIS_TESTE) setFrete(0); setStep(2); }}
                 >Continuar para frete</Button>
               </>
             )}
