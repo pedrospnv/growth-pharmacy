@@ -216,8 +216,9 @@ function PedidosAdmin() {
     },
   });
 
-  const aguardando = pedidos.filter((p: any) => ["pendente", "aguardando_pagamento"].includes(p.status));
-  const pagos = pedidos.filter((p: any) => !["pendente", "aguardando_pagamento"].includes(p.status));
+  const PENDING = ["pendente", "aguardando_pagamento", "aguardando_pix", "aguardando_boleto"];
+  const aguardando = pedidos.filter((p: any) => PENDING.includes(p.status));
+  const pagos = pedidos.filter((p: any) => !PENDING.includes(p.status));
 
   const exportar = () => {
     const rows = pedidos.map((p: any) => ({
