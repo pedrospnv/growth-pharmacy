@@ -1,7 +1,54 @@
-import { createServerFn } from "@tanstack/react-start";
+import { createServerFn, createMiddleware } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { supabase as supabaseBrowser } from "@/integrations/supabase/client";
+
+// Client-side: explicitly attach the current user's bearer token to the request.
+// Refreshes the session if needed so we never send a stale/expired access_token.
+const attachBearer = createMiddleware({ type: "function" }).client(async ({ next }) => {
+  let { data } = await supabaseBrowser.auth.getSession();
+  let token = data.session?.access_token;
+  const expiresAt = data.session?.expires_at;
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (!token || (expiresAt && expiresAt - nowSec < 30)) {
+    const { data: refreshed } = await supabaseBrowser.auth.refreshSession();
+    token = refreshed.session?.access_token ?? token;
+  }
+  if (!token) {
+    throw new Error("Sessão expirada. Faça login novamente.");
+  }
+  return next({ headers: { Authorization: `Bearer ${token}` } });
+});
+
+// Server-side: read the bearer token and validate it remotely via
+// supabaseAdmin.auth.getUser(token). More reliable than local JWKS validation.
+const requireAdmin = createMiddleware({ type: "function" }).server(async ({ next }) => {
+  const request = getRequest();
+  const authHeader = request?.headers.get("authorization") ?? "";
+  if (!authHeader.startsWith("Bearer ")) {
+    throw new Error("Unauthorized: missing bearer token");
+  }
+  const token = authHeader.slice("Bearer ".length).trim();
+  if (!token) throw new Error("Unauthorized: empty token");
+
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data?.user) {
+    throw new Error("Unauthorized: invalid session");
+  }
+  const userId = data.user.id;
+
+  const { data: roleRow, error: rErr } = await supabaseAdmin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
+  if (rErr) throw new Error(rErr.message);
+  if (!roleRow) throw new Error("Acesso restrito a administradores");
+
+  return next({ context: { userId } });
+});
 
 async function assertAdmin(userId: string) {
   const { data, error } = await supabaseAdmin
@@ -15,7 +62,7 @@ async function assertAdmin(userId: string) {
 }
 
 export const createFuncionario = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([attachBearer, requireAdmin])
   .inputValidator((input) =>
     z.object({
       nome: z.string().min(1).max(120),
@@ -46,7 +93,7 @@ export const createFuncionario = createServerFn({ method: "POST" })
   });
 
 export const updateFuncionario = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([attachBearer, requireAdmin])
   .inputValidator((input) =>
     z.object({
       id: z.string().uuid(),
@@ -70,7 +117,7 @@ export const updateFuncionario = createServerFn({ method: "POST" })
   });
 
 export const setAccountActive = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([attachBearer, requireAdmin])
   .inputValidator((input) =>
     z.object({
       id: z.string().uuid(),
@@ -92,7 +139,7 @@ export const setAccountActive = createServerFn({ method: "POST" })
   });
 
 export const listFuncionarios = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([attachBearer, requireAdmin])
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
     const { data: roles, error } = await supabaseAdmin
@@ -111,7 +158,7 @@ export const listFuncionarios = createServerFn({ method: "GET" })
   });
 
 export const listClientes = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([attachBearer, requireAdmin])
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
     // Clientes = users without admin/funcionario role
@@ -144,7 +191,7 @@ export const listClientes = createServerFn({ method: "GET" })
   });
 
 export const deleteFuncionario = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([attachBearer, requireAdmin])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);

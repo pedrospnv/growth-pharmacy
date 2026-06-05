@@ -444,7 +444,7 @@ function EquipeAdmin() {
           <table className="w-full text-sm">
             <thead className="bg-muted/50"><tr className="text-left"><th className="p-3">Nome</th><th className="p-3">E-mail</th><th className="p-3">Status</th><th className="p-3 text-right">Ações</th></tr></thead>
             <tbody>
-              {funcionarios.map((f) => (
+              {funcionarios.map((f: { id: string; nome: string | null; email: string | null; ativo: boolean }) => (
                 <tr key={f.id} className="border-t border-border">
                   <td className="p-3 font-medium">{f.nome ?? "—"}</td>
                   <td className="p-3 text-muted-foreground">{f.email}</td>
