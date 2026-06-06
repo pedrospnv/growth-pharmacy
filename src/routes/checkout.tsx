@@ -290,23 +290,38 @@ function Checkout() {
 
                 {pgto === "pix" && (
                   <div className="rounded-xl border border-border p-6 text-center bg-secondary/40">
-                    <p className="text-sm font-bold text-success mb-3">✓ 10% OFF aplicado automaticamente</p>
-                    {pixData?.qr_code_base64 ? (
-                      <>
-                        <div className="inline-block bg-white p-3 rounded-xl">
-                          <img alt="QR Code PIX" className="h-56 w-56" src={`data:image/png;base64,${pixData.qr_code_base64}`} />
+                    {pagamentoAprovado ? (
+                      <div className="py-6">
+                        <div className="mx-auto h-16 w-16 grid place-items-center rounded-full bg-success/10 text-success mb-3">
+                          <CheckCircle2 className="h-10 w-10" />
                         </div>
-                        <div className="mt-4 text-left">
-                          <Label className="text-xs">Código copia e cola</Label>
-                          <div className="flex gap-2 mt-1">
-                            <Input readOnly value={pixData.qr_code || ""} className="font-mono text-xs" />
-                            <Button type="button" variant="outline" size="icon" onClick={copyPix}><Copy className="h-4 w-4" /></Button>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-2">Escaneie o QR Code ou cole o código no seu app bancário</p>
-                        </div>
-                      </>
+                        <p className="font-display text-xl font-extrabold">Pagamento aprovado!</p>
+                        <p className="text-sm text-muted-foreground mt-1">Seu pedido foi confirmado.</p>
+                      </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">Clique em "Confirmar pedido" para gerar o QR Code PIX</p>
+                      <>
+                        <p className="text-sm font-bold text-success mb-3">✓ 10% OFF aplicado automaticamente</p>
+                        {pixData?.qr_code_base64 ? (
+                          <>
+                            <div className="inline-block bg-white p-3 rounded-xl">
+                              <img alt="QR Code PIX" className="h-56 w-56" src={`data:image/png;base64,${pixData.qr_code_base64}`} />
+                            </div>
+                            <div className="mt-4 text-left">
+                              <Label className="text-xs">Código copia e cola</Label>
+                              <div className="flex gap-2 mt-1">
+                                <Input readOnly value={pixData.qr_code || ""} className="font-mono text-xs" />
+                                <Button type="button" variant="outline" size="icon" onClick={copyPix}><Copy className="h-4 w-4" /></Button>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-2">Escaneie o QR Code ou cole o código no seu app bancário</p>
+                              <p className="text-xs text-primary font-semibold mt-3 flex items-center gap-2 justify-center">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Aguardando confirmação do pagamento...
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Clique em "Confirmar pedido" para gerar o QR Code PIX</p>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
@@ -352,14 +367,14 @@ function Checkout() {
                 )}
 
                 <div className="flex gap-3 pt-4">
-                  <Button variant="outline" className="flex-1 rounded-full" onClick={() => setStep(2)} disabled={saving}>Voltar</Button>
+                  <Button variant="outline" className="flex-1 rounded-full" onClick={() => setStep(2)} disabled={saving || !!pedidoId}>Voltar</Button>
                   {!pixData && !boletoData ? (
                     <Button size="lg" disabled={saving} className="flex-1 rounded-full" onClick={finalizar}>
                       {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Processando...</> : `Confirmar pedido · ${brl(total)}`}
                     </Button>
                   ) : (
-                    <Button size="lg" className="flex-1 rounded-full" onClick={() => navigate({ to: "/conta" })}>
-                      Ver meus pedidos
+                    <Button size="lg" className="flex-1 rounded-full" onClick={() => pedidoId ? navigate({ to: "/pedido/$id", params: { id: pedidoId } }) : navigate({ to: "/conta" })}>
+                      {pagamentoAprovado ? "Ver pedido" : "Ver meus pedidos"}
                     </Button>
                   )}
                 </div>
