@@ -263,6 +263,12 @@ function PagamentoPendente({ pedido: p, onUpdated }: { pedido: any; onUpdated: (
           ))}
         </div>
 
+        <div>
+          <Label>CPF do pagador</Label>
+          <Input value={cpf} onChange={(e) => setCpf(maskCpf(e.target.value))} placeholder="000.000.000-00" />
+          <p className="text-xs text-muted-foreground mt-1">Necessário para emitir o pagamento. Salvamos para as próximas compras.</p>
+        </div>
+
         {pgto === "pix" && (
           <div className="rounded-xl border border-border p-6 text-center bg-secondary/40">
             <p className="text-sm font-bold text-success mb-3">✓ 10% OFF aplicado automaticamente</p>
@@ -278,6 +284,9 @@ function PagamentoPendente({ pedido: p, onUpdated }: { pedido: any; onUpdated: (
                     <Button type="button" variant="outline" size="icon" onClick={copyPix}><Copy className="h-4 w-4" /></Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">Escaneie o QR Code ou cole o código no seu app bancário</p>
+                  <p className="text-xs text-primary font-semibold mt-3 flex items-center gap-2 justify-center">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Aguardando confirmação do pagamento...
+                  </p>
                 </div>
               </>
             ) : (
