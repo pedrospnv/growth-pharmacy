@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth";
 import { brl, maskCep, maskCardNumber, maskCardExp, maskCpf, onlyDigits, calcFretePorCep } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Check, CreditCard, QrCode, Barcode, Copy, Loader2 } from "lucide-react";
+import { Check, CreditCard, QrCode, Barcode, Copy, Loader2, CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({ meta: [{ title: "Checkout — Farma Pro" }] }),
@@ -39,6 +39,8 @@ function Checkout() {
   const [saving, setSaving] = useState(false);
   const [pixData, setPixData] = useState<{ qr_code_base64?: string; qr_code?: string } | null>(null);
   const [boletoData, setBoletoData] = useState<{ barcode?: string; boleto_url?: string } | null>(null);
+  const [pedidoId, setPedidoId] = useState<string | null>(null);
+  const [pagamentoAprovado, setPagamentoAprovado] = useState(false);
 
   useEffect(() => {
     if (items.length === 0 && step !== 3 && !pixData && !boletoData) navigate({ to: "/carrinho" });
@@ -50,6 +52,35 @@ function Checkout() {
       navigate({ to: "/login" });
     }
   }, [user, step, navigate]);
+
+  // Auto-preenche nome e CPF a partir do perfil
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase.from("profiles").select("nome, cpf").eq("id", user.id).maybeSingle();
+      if (data) {
+        setEndereco((e) => ({
+          ...e,
+          nome: e.nome || data.nome || "",
+          cpf: e.cpf || (data.cpf ? maskCpf(data.cpf) : ""),
+        }));
+      }
+    })();
+  }, [user]);
+
+  // Polling do status do pedido (PIX / Boleto)
+  useEffect(() => {
+    if (!pedidoId || pagamentoAprovado) return;
+    const t = setInterval(async () => {
+      const { data } = await supabase.from("pedidos").select("status").eq("id", pedidoId).maybeSingle();
+      if (data && (data.status === "pago" || data.status === "em_preparacao" || data.status === "a_caminho" || data.status === "entregue")) {
+        setPagamentoAprovado(true);
+        clearInterval(t);
+        toast.success("Pagamento aprovado!");
+      }
+    }, 5000);
+    return () => clearInterval(t);
+  }, [pedidoId, pagamentoAprovado]);
 
   const buscarCep = async (cep: string) => {
     const d = onlyDigits(cep);
@@ -129,10 +160,14 @@ function Checkout() {
         itens: items as any,
         subtotal, frete, desconto_pix: desconto, total,
         forma_pagamento: pgto,
-        status: mpStatus === "pago" ? "confirmado" : mpStatus,
+        status: mpStatus,
+        mercadopago_payment_id: mpResult?.id ? String(mpResult.id) : null,
       }).select("id").single();
 
       if (error) throw error;
+
+      // Salva CPF no perfil para próximas compras
+      await supabase.from("profiles").update({ cpf: onlyDigits(endereco.cpf) }).eq("id", user.id);
 
       // Cartão = redireciona direto. PIX/Boleto = mantém na tela pra usuário ver o código.
       if (pgto === "cartao") {
@@ -140,9 +175,8 @@ function Checkout() {
         navigate({ to: "/pedido/$id", params: { id: data.id } });
       } else {
         toast.success(pgto === "pix" ? "PIX gerado! Escaneie o QR Code." : "Boleto gerado!");
-        // Limpa carrinho mas mantém na tela pra mostrar QR/boleto
         clear();
-        (window as any).__pedidoId = data.id;
+        setPedidoId(data.id);
       }
     } catch (e: any) {
       toast.error(e.message || "Erro no pagamento");
