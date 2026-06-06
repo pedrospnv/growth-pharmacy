@@ -22,6 +22,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProdutoIdRouteImport } from './routes/produto.$id'
 import { Route as PedidoIdRouteImport } from './routes/pedido.$id'
+import { Route as ApiMercadopagoStatusRouteImport } from './routes/api/mercadopago.status'
 import { Route as ApiMercadopagoCreateRouteImport } from './routes/api/mercadopago.create'
 import { Route as ApiPublicMercadopagoWebhookRouteImport } from './routes/api/public/mercadopago.webhook'
 
@@ -90,6 +91,11 @@ const PedidoIdRoute = PedidoIdRouteImport.update({
   path: '/pedido/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMercadopagoStatusRoute = ApiMercadopagoStatusRouteImport.update({
+  id: '/api/mercadopago/status',
+  path: '/api/mercadopago/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMercadopagoCreateRoute = ApiMercadopagoCreateRouteImport.update({
   id: '/api/mercadopago/create',
   path: '/api/mercadopago/create',
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/verificar-email': typeof VerificarEmailRoute
   '/pedido/$id': typeof PedidoIdRoute
   '/produto/$id': typeof ProdutoIdRoute
+  '/api/mercadopago/status': typeof ApiMercadopagoStatusRoute
   '/api/mercadopago/create': typeof ApiMercadopagoCreateRoute
   '/api/public/mercadopago/webhook': typeof ApiPublicMercadopagoWebhookRoute
 }
@@ -133,6 +140,7 @@ export interface FileRoutesByTo {
   '/verificar-email': typeof VerificarEmailRoute
   '/pedido/$id': typeof PedidoIdRoute
   '/produto/$id': typeof ProdutoIdRoute
+  '/api/mercadopago/status': typeof ApiMercadopagoStatusRoute
   '/api/mercadopago/create': typeof ApiMercadopagoCreateRoute
   '/api/public/mercadopago/webhook': typeof ApiPublicMercadopagoWebhookRoute
 }
@@ -151,6 +159,7 @@ export interface FileRoutesById {
   '/verificar-email': typeof VerificarEmailRoute
   '/pedido/$id': typeof PedidoIdRoute
   '/produto/$id': typeof ProdutoIdRoute
+  '/api/mercadopago/status': typeof ApiMercadopagoStatusRoute
   '/api/mercadopago/create': typeof ApiMercadopagoCreateRoute
   '/api/public/mercadopago/webhook': typeof ApiPublicMercadopagoWebhookRoute
 }
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
     | '/verificar-email'
     | '/pedido/$id'
     | '/produto/$id'
+    | '/api/mercadopago/status'
     | '/api/mercadopago/create'
     | '/api/public/mercadopago/webhook'
   fileRoutesByTo: FileRoutesByTo
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/verificar-email'
     | '/pedido/$id'
     | '/produto/$id'
+    | '/api/mercadopago/status'
     | '/api/mercadopago/create'
     | '/api/public/mercadopago/webhook'
   id:
@@ -204,6 +215,7 @@ export interface FileRouteTypes {
     | '/verificar-email'
     | '/pedido/$id'
     | '/produto/$id'
+    | '/api/mercadopago/status'
     | '/api/mercadopago/create'
     | '/api/public/mercadopago/webhook'
   fileRoutesById: FileRoutesById
@@ -222,6 +234,7 @@ export interface RootRouteChildren {
   VerificarEmailRoute: typeof VerificarEmailRoute
   PedidoIdRoute: typeof PedidoIdRoute
   ProdutoIdRoute: typeof ProdutoIdRoute
+  ApiMercadopagoStatusRoute: typeof ApiMercadopagoStatusRoute
   ApiMercadopagoCreateRoute: typeof ApiMercadopagoCreateRoute
   ApiPublicMercadopagoWebhookRoute: typeof ApiPublicMercadopagoWebhookRoute
 }
@@ -319,6 +332,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PedidoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/mercadopago/status': {
+      id: '/api/mercadopago/status'
+      path: '/api/mercadopago/status'
+      fullPath: '/api/mercadopago/status'
+      preLoaderRoute: typeof ApiMercadopagoStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/mercadopago/create': {
       id: '/api/mercadopago/create'
       path: '/api/mercadopago/create'
@@ -350,6 +370,7 @@ const rootRouteChildren: RootRouteChildren = {
   VerificarEmailRoute: VerificarEmailRoute,
   PedidoIdRoute: PedidoIdRoute,
   ProdutoIdRoute: ProdutoIdRoute,
+  ApiMercadopagoStatusRoute: ApiMercadopagoStatusRoute,
   ApiMercadopagoCreateRoute: ApiMercadopagoCreateRoute,
   ApiPublicMercadopagoWebhookRoute: ApiPublicMercadopagoWebhookRoute,
 }
