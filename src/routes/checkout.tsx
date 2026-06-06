@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth";
 import { brl, maskCep, maskCardNumber, maskCardExp, maskCpf, onlyDigits, calcFretePorCep } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Check, CreditCard, QrCode, Barcode, Copy, Loader2 } from "lucide-react";
+import { Check, CreditCard, QrCode, Barcode, Copy, Loader2, CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({ meta: [{ title: "Checkout — Farma Pro" }] }),
@@ -39,6 +39,8 @@ function Checkout() {
   const [saving, setSaving] = useState(false);
   const [pixData, setPixData] = useState<{ qr_code_base64?: string; qr_code?: string } | null>(null);
   const [boletoData, setBoletoData] = useState<{ barcode?: string; boleto_url?: string } | null>(null);
+  const [pedidoId, setPedidoId] = useState<string | null>(null);
+  const [pagamentoAprovado, setPagamentoAprovado] = useState(false);
 
   useEffect(() => {
     if (items.length === 0 && step !== 3 && !pixData && !boletoData) navigate({ to: "/carrinho" });
@@ -50,6 +52,35 @@ function Checkout() {
       navigate({ to: "/login" });
     }
   }, [user, step, navigate]);
+
+  // Auto-preenche nome e CPF a partir do perfil
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase.from("profiles").select("nome, cpf").eq("id", user.id).maybeSingle();
+      if (data) {
+        setEndereco((e) => ({
+          ...e,
+          nome: e.nome || data.nome || "",
+          cpf: e.cpf || (data.cpf ? maskCpf(data.cpf) : ""),
+        }));
+      }
+    })();
+  }, [user]);
+
+  // Polling do status do pedido (PIX / Boleto)
+  useEffect(() => {
+    if (!pedidoId || pagamentoAprovado) return;
+    const t = setInterval(async () => {
+      const { data } = await supabase.from("pedidos").select("status").eq("id", pedidoId).maybeSingle();
+      if (data && (data.status === "pago" || data.status === "em_preparacao" || data.status === "a_caminho" || data.status === "entregue")) {
+        setPagamentoAprovado(true);
+        clearInterval(t);
+        toast.success("Pagamento aprovado!");
+      }
+    }, 5000);
+    return () => clearInterval(t);
+  }, [pedidoId, pagamentoAprovado]);
 
   const buscarCep = async (cep: string) => {
     const d = onlyDigits(cep);
@@ -129,10 +160,14 @@ function Checkout() {
         itens: items as any,
         subtotal, frete, desconto_pix: desconto, total,
         forma_pagamento: pgto,
-        status: mpStatus === "pago" ? "confirmado" : mpStatus,
+        status: mpStatus,
+        mercadopago_payment_id: mpResult?.id ? String(mpResult.id) : null,
       }).select("id").single();
 
       if (error) throw error;
+
+      // Salva CPF no perfil para próximas compras
+      await supabase.from("profiles").update({ cpf: onlyDigits(endereco.cpf) }).eq("id", user.id);
 
       // Cartão = redireciona direto. PIX/Boleto = mantém na tela pra usuário ver o código.
       if (pgto === "cartao") {
@@ -140,9 +175,8 @@ function Checkout() {
         navigate({ to: "/pedido/$id", params: { id: data.id } });
       } else {
         toast.success(pgto === "pix" ? "PIX gerado! Escaneie o QR Code." : "Boleto gerado!");
-        // Limpa carrinho mas mantém na tela pra mostrar QR/boleto
         clear();
-        (window as any).__pedidoId = data.id;
+        setPedidoId(data.id);
       }
     } catch (e: any) {
       toast.error(e.message || "Erro no pagamento");
@@ -256,23 +290,38 @@ function Checkout() {
 
                 {pgto === "pix" && (
                   <div className="rounded-xl border border-border p-6 text-center bg-secondary/40">
-                    <p className="text-sm font-bold text-success mb-3">✓ 10% OFF aplicado automaticamente</p>
-                    {pixData?.qr_code_base64 ? (
-                      <>
-                        <div className="inline-block bg-white p-3 rounded-xl">
-                          <img alt="QR Code PIX" className="h-56 w-56" src={`data:image/png;base64,${pixData.qr_code_base64}`} />
+                    {pagamentoAprovado ? (
+                      <div className="py-6">
+                        <div className="mx-auto h-16 w-16 grid place-items-center rounded-full bg-success/10 text-success mb-3">
+                          <CheckCircle2 className="h-10 w-10" />
                         </div>
-                        <div className="mt-4 text-left">
-                          <Label className="text-xs">Código copia e cola</Label>
-                          <div className="flex gap-2 mt-1">
-                            <Input readOnly value={pixData.qr_code || ""} className="font-mono text-xs" />
-                            <Button type="button" variant="outline" size="icon" onClick={copyPix}><Copy className="h-4 w-4" /></Button>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-2">Escaneie o QR Code ou cole o código no seu app bancário</p>
-                        </div>
-                      </>
+                        <p className="font-display text-xl font-extrabold">Pagamento aprovado!</p>
+                        <p className="text-sm text-muted-foreground mt-1">Seu pedido foi confirmado.</p>
+                      </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">Clique em "Confirmar pedido" para gerar o QR Code PIX</p>
+                      <>
+                        <p className="text-sm font-bold text-success mb-3">✓ 10% OFF aplicado automaticamente</p>
+                        {pixData?.qr_code_base64 ? (
+                          <>
+                            <div className="inline-block bg-white p-3 rounded-xl">
+                              <img alt="QR Code PIX" className="h-56 w-56" src={`data:image/png;base64,${pixData.qr_code_base64}`} />
+                            </div>
+                            <div className="mt-4 text-left">
+                              <Label className="text-xs">Código copia e cola</Label>
+                              <div className="flex gap-2 mt-1">
+                                <Input readOnly value={pixData.qr_code || ""} className="font-mono text-xs" />
+                                <Button type="button" variant="outline" size="icon" onClick={copyPix}><Copy className="h-4 w-4" /></Button>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-2">Escaneie o QR Code ou cole o código no seu app bancário</p>
+                              <p className="text-xs text-primary font-semibold mt-3 flex items-center gap-2 justify-center">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Aguardando confirmação do pagamento...
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Clique em "Confirmar pedido" para gerar o QR Code PIX</p>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
@@ -318,14 +367,14 @@ function Checkout() {
                 )}
 
                 <div className="flex gap-3 pt-4">
-                  <Button variant="outline" className="flex-1 rounded-full" onClick={() => setStep(2)} disabled={saving}>Voltar</Button>
+                  <Button variant="outline" className="flex-1 rounded-full" onClick={() => setStep(2)} disabled={saving || !!pedidoId}>Voltar</Button>
                   {!pixData && !boletoData ? (
                     <Button size="lg" disabled={saving} className="flex-1 rounded-full" onClick={finalizar}>
                       {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Processando...</> : `Confirmar pedido · ${brl(total)}`}
                     </Button>
                   ) : (
-                    <Button size="lg" className="flex-1 rounded-full" onClick={() => navigate({ to: "/conta" })}>
-                      Ver meus pedidos
+                    <Button size="lg" className="flex-1 rounded-full" onClick={() => pedidoId ? navigate({ to: "/pedido/$id", params: { id: pedidoId } }) : navigate({ to: "/conta" })}>
+                      {pagamentoAprovado ? "Ver pedido" : "Ver meus pedidos"}
                     </Button>
                   )}
                 </div>

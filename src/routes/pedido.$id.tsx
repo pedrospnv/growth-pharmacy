@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { brl, maskCardNumber, maskCardExp, onlyDigits } from "@/lib/format";
+import { useAuth } from "@/lib/auth";
+import { brl, maskCardNumber, maskCardExp, maskCpf, onlyDigits } from "@/lib/format";
 import { toast } from "sonner";
 import { CheckCircle2, Truck, ExternalLink, QrCode, CreditCard, Barcode, Copy, Loader2, Clock } from "lucide-react";
 
@@ -131,8 +132,32 @@ function PagamentoPendente({ pedido: p, onUpdated }: { pedido: any; onUpdated: (
   const [pixData, setPixData] = useState<{ qr_code_base64?: string; qr_code?: string } | null>(null);
   const [boletoData, setBoletoData] = useState<{ barcode?: string; boleto_url?: string } | null>(null);
   const [cartao, setCartao] = useState({ numero: "", nome: "", validade: "", cvv: "", parcelas: 1 });
+  const [cpf, setCpf] = useState("");
+  const { user } = useAuth();
 
-  // Recalcula total considerando desconto PIX (10% sobre subtotal) caso troque de método
+  // Carrega CPF do perfil
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase.from("profiles").select("cpf").eq("id", user.id).maybeSingle();
+      if (data?.cpf) setCpf(maskCpf(data.cpf));
+    })();
+  }, [user]);
+
+  // Polling: detecta aprovação automática
+  useEffect(() => {
+    if (!pixData && !boletoData) return;
+    const t = setInterval(async () => {
+      const { data } = await supabase.from("pedidos").select("status").eq("id", p.id).maybeSingle();
+      if (data && !PENDING_STATUSES.has(data.status)) {
+        clearInterval(t);
+        toast.success("Pagamento aprovado!");
+        onUpdated();
+      }
+    }, 5000);
+    return () => clearInterval(t);
+  }, [pixData, boletoData, p.id, onUpdated]);
+
   const subtotal = Number(p.subtotal);
   const frete = Number(p.frete);
   const desconto = pgto === "pix" ? subtotal * 0.1 : 0;
@@ -150,15 +175,23 @@ function PagamentoPendente({ pedido: p, onUpdated }: { pedido: any; onUpdated: (
   };
 
   const pagar = async () => {
+    if (onlyDigits(cpf).length !== 11) {
+      toast.error("Informe um CPF válido para pagar");
+      return;
+    }
     setLoading(true);
     try {
-      const payer = { email: p.email, nome: p.nome_cliente, cpf: "" };
+      const payer = { email: p.email, nome: p.nome_cliente, cpf };
+      // Salva CPF no perfil
+      if (user) await supabase.from("profiles").update({ cpf: onlyDigits(cpf) }).eq("id", user.id);
+
       if (pgto === "pix") {
         const r = await callMP({ method: "pix", amount: total, payer, description: `Pedido ${p.id.slice(0, 8)}` });
         setPixData({ qr_code_base64: r.qr_code_base64, qr_code: r.qr_code });
         await supabase.from("pedidos").update({
           forma_pagamento: "pix", subtotal, frete, desconto_pix: desconto, total,
           status: r.status === "approved" ? "pago" : "aguardando_pix",
+          mercadopago_payment_id: r.id ? String(r.id) : null,
         }).eq("id", p.id);
         toast.success("PIX gerado! Escaneie o QR Code.");
       } else if (pgto === "boleto") {
@@ -170,6 +203,7 @@ function PagamentoPendente({ pedido: p, onUpdated }: { pedido: any; onUpdated: (
         await supabase.from("pedidos").update({
           forma_pagamento: "boleto", subtotal, frete, desconto_pix: 0, total,
           status: "aguardando_boleto",
+          mercadopago_payment_id: r.id ? String(r.id) : null,
         }).eq("id", p.id);
         toast.success("Boleto gerado!");
       } else {
@@ -180,6 +214,7 @@ function PagamentoPendente({ pedido: p, onUpdated }: { pedido: any; onUpdated: (
         if (r.status !== "approved") throw new Error(`Pagamento ${r.status}: ${r.status_detail || ""}`);
         await supabase.from("pedidos").update({
           forma_pagamento: "cartao", subtotal, frete, desconto_pix: 0, total, status: "pago",
+          mercadopago_payment_id: r.id ? String(r.id) : null,
         }).eq("id", p.id);
         toast.success("Pagamento aprovado!");
         onUpdated();
@@ -228,6 +263,12 @@ function PagamentoPendente({ pedido: p, onUpdated }: { pedido: any; onUpdated: (
           ))}
         </div>
 
+        <div>
+          <Label>CPF do pagador</Label>
+          <Input value={cpf} onChange={(e) => setCpf(maskCpf(e.target.value))} placeholder="000.000.000-00" />
+          <p className="text-xs text-muted-foreground mt-1">Necessário para emitir o pagamento. Salvamos para as próximas compras.</p>
+        </div>
+
         {pgto === "pix" && (
           <div className="rounded-xl border border-border p-6 text-center bg-secondary/40">
             <p className="text-sm font-bold text-success mb-3">✓ 10% OFF aplicado automaticamente</p>
@@ -243,6 +284,9 @@ function PagamentoPendente({ pedido: p, onUpdated }: { pedido: any; onUpdated: (
                     <Button type="button" variant="outline" size="icon" onClick={copyPix}><Copy className="h-4 w-4" /></Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">Escaneie o QR Code ou cole o código no seu app bancário</p>
+                  <p className="text-xs text-primary font-semibold mt-3 flex items-center gap-2 justify-center">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Aguardando confirmação do pagamento...
+                  </p>
                 </div>
               </>
             ) : (
