@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { brl, maskCardNumber, maskCardExp, onlyDigits } from "@/lib/format";
+import { useAuth } from "@/lib/auth";
+import { brl, maskCardNumber, maskCardExp, maskCpf, onlyDigits } from "@/lib/format";
 import { toast } from "sonner";
 import { CheckCircle2, Truck, ExternalLink, QrCode, CreditCard, Barcode, Copy, Loader2, Clock } from "lucide-react";
 
