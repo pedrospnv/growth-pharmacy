@@ -28,6 +28,7 @@ export type Database = {
           frete: number
           id: string
           itens: Json
+          mercadopago_payment_id: string | null
           nome_cliente: string
           status: string
           subtotal: number
@@ -47,6 +48,7 @@ export type Database = {
           frete?: number
           id?: string
           itens: Json
+          mercadopago_payment_id?: string | null
           nome_cliente: string
           status?: string
           subtotal: number
@@ -66,6 +68,7 @@ export type Database = {
           frete?: number
           id?: string
           itens?: Json
+          mercadopago_payment_id?: string | null
           nome_cliente?: string
           status?: string
           subtotal?: number
@@ -116,6 +119,7 @@ export type Database = {
       profiles: {
         Row: {
           ativo: boolean
+          cpf: string | null
           created_at: string
           email: string | null
           id: string
@@ -123,6 +127,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          cpf?: string | null
           created_at?: string
           email?: string | null
           id: string
@@ -130,6 +135,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          cpf?: string | null
           created_at?: string
           email?: string | null
           id?: string
