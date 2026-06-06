@@ -2,15 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 
 const MP_BASE = "https://api.mercadopago.com";
 
-// Mapeia o status do Mercado Pago para o status interno do pedido
 function mapStatus(mpStatus: string): string | null {
   switch (mpStatus) {
     case "approved":
       return "pago";
-    case "in_process":
-    case "pending":
-    case "authorized":
-      return null; // mantém status atual
     case "rejected":
     case "cancelled":
     case "refunded":
@@ -25,30 +20,41 @@ async function handleNotification(paymentId: string) {
   const token = process.env.MERCADOPAGO_ACCESS_TOKEN;
   if (!token) {
     console.error("[mp-webhook] MERCADOPAGO_ACCESS_TOKEN ausente");
-    return new Response("Config ausente", { status: 500 });
+    return new Response("config ausente", { status: 500 });
   }
 
-  // Consulta o pagamento na API do MP para confirmar o status real
   const res = await fetch(`${MP_BASE}/v1/payments/${paymentId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+
   if (!res.ok) {
-    console.error("[mp-webhook] Falha ao consultar pagamento", paymentId, res.status);
+    console.error("[mp-webhook] falha ao consultar pagamento", paymentId, res.status);
     return new Response("ok", { status: 200 });
   }
+
   const payment = await res.json();
-  const novoStatus = mapStatus(payment?.status);
-  if (!novoStatus) return new Response("ok", { status: 200 });
+  console.log("[mp-webhook] payment_id:", paymentId, "| mp_status:", payment?.status);
+
+  const novoStatus = mapStatus(payment?.status ?? "");
+  if (!novoStatus) {
+    console.log("[mp-webhook] status ignorado:", payment?.status);
+    return new Response("ok", { status: 200 });
+  }
 
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-  // Atualiza o pedido vinculado a este pagamento
-  const { error } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("pedidos")
     .update({ status: novoStatus })
-    .eq("mercadopago_payment_id", String(paymentId));
+    .eq("mercadopago_payment_id", String(paymentId))
+    .select("id");
 
-  if (error) console.error("[mp-webhook] erro update pedido", error.message);
+  if (error) {
+    console.error("[mp-webhook] erro ao atualizar pedido:", error.message);
+  } else {
+    console.log("[mp-webhook] pedidos atualizados:", data?.length ?? 0, "| novo status:", novoStatus);
+  }
+
   return new Response("ok", { status: 200 });
 }
 
@@ -57,22 +63,34 @@ export const Route = createFileRoute("/api/public/mercadopago/webhook")({
     handlers: {
       POST: async ({ request }) => {
         const url = new URL(request.url);
-        // MP envia tanto na query (?type=payment&data.id=123) quanto no body
         let paymentId = url.searchParams.get("data.id") || url.searchParams.get("id");
-        const type = url.searchParams.get("type") || url.searchParams.get("topic");
+        let eventType = url.searchParams.get("type") || url.searchParams.get("topic");
 
         try {
           const body = await request.json().catch(() => null as any);
-          if (!paymentId && body) {
-            paymentId = body?.data?.id || body?.resource?.toString().split("/").pop() || body?.id;
+          if (body) {
+            if (!paymentId) {
+              paymentId =
+                body?.data?.id ||
+                body?.resource?.toString().split("/").pop() ||
+                String(body?.id || "");
+            }
+            if (!eventType) {
+              eventType = body?.type || body?.topic;
+            }
           }
-          const eventType = type || body?.type || body?.topic;
-          if (eventType && !String(eventType).includes("payment")) {
-            return new Response("ignored", { status: 200 });
-          }
-        } catch { /* ignore */ }
+        } catch { /* ignora */ }
 
-        if (!paymentId) return new Response("missing id", { status: 200 });
+        if (eventType && !String(eventType).toLowerCase().includes("payment")) {
+          console.log("[mp-webhook] evento ignorado:", eventType);
+          return new Response("ignored", { status: 200 });
+        }
+
+        if (!paymentId || paymentId === "0") {
+          console.warn("[mp-webhook] paymentId ausente ou invalido");
+          return new Response("missing id", { status: 200 });
+        }
+
         return handleNotification(String(paymentId));
       },
       GET: async ({ request }) => {
