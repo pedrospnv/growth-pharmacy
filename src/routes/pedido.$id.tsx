@@ -132,8 +132,32 @@ function PagamentoPendente({ pedido: p, onUpdated }: { pedido: any; onUpdated: (
   const [pixData, setPixData] = useState<{ qr_code_base64?: string; qr_code?: string } | null>(null);
   const [boletoData, setBoletoData] = useState<{ barcode?: string; boleto_url?: string } | null>(null);
   const [cartao, setCartao] = useState({ numero: "", nome: "", validade: "", cvv: "", parcelas: 1 });
+  const [cpf, setCpf] = useState("");
+  const { user } = useAuth();
 
-  // Recalcula total considerando desconto PIX (10% sobre subtotal) caso troque de método
+  // Carrega CPF do perfil
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase.from("profiles").select("cpf").eq("id", user.id).maybeSingle();
+      if (data?.cpf) setCpf(maskCpf(data.cpf));
+    })();
+  }, [user]);
+
+  // Polling: detecta aprovação automática
+  useEffect(() => {
+    if (!pixData && !boletoData) return;
+    const t = setInterval(async () => {
+      const { data } = await supabase.from("pedidos").select("status").eq("id", p.id).maybeSingle();
+      if (data && !PENDING_STATUSES.has(data.status)) {
+        clearInterval(t);
+        toast.success("Pagamento aprovado!");
+        onUpdated();
+      }
+    }, 5000);
+    return () => clearInterval(t);
+  }, [pixData, boletoData, p.id, onUpdated]);
+
   const subtotal = Number(p.subtotal);
   const frete = Number(p.frete);
   const desconto = pgto === "pix" ? subtotal * 0.1 : 0;
@@ -151,15 +175,23 @@ function PagamentoPendente({ pedido: p, onUpdated }: { pedido: any; onUpdated: (
   };
 
   const pagar = async () => {
+    if (onlyDigits(cpf).length !== 11) {
+      toast.error("Informe um CPF válido para pagar");
+      return;
+    }
     setLoading(true);
     try {
-      const payer = { email: p.email, nome: p.nome_cliente, cpf: "" };
+      const payer = { email: p.email, nome: p.nome_cliente, cpf };
+      // Salva CPF no perfil
+      if (user) await supabase.from("profiles").update({ cpf: onlyDigits(cpf) }).eq("id", user.id);
+
       if (pgto === "pix") {
         const r = await callMP({ method: "pix", amount: total, payer, description: `Pedido ${p.id.slice(0, 8)}` });
         setPixData({ qr_code_base64: r.qr_code_base64, qr_code: r.qr_code });
         await supabase.from("pedidos").update({
           forma_pagamento: "pix", subtotal, frete, desconto_pix: desconto, total,
           status: r.status === "approved" ? "pago" : "aguardando_pix",
+          mercadopago_payment_id: r.id ? String(r.id) : null,
         }).eq("id", p.id);
         toast.success("PIX gerado! Escaneie o QR Code.");
       } else if (pgto === "boleto") {
@@ -171,6 +203,7 @@ function PagamentoPendente({ pedido: p, onUpdated }: { pedido: any; onUpdated: (
         await supabase.from("pedidos").update({
           forma_pagamento: "boleto", subtotal, frete, desconto_pix: 0, total,
           status: "aguardando_boleto",
+          mercadopago_payment_id: r.id ? String(r.id) : null,
         }).eq("id", p.id);
         toast.success("Boleto gerado!");
       } else {
@@ -181,6 +214,7 @@ function PagamentoPendente({ pedido: p, onUpdated }: { pedido: any; onUpdated: (
         if (r.status !== "approved") throw new Error(`Pagamento ${r.status}: ${r.status_detail || ""}`);
         await supabase.from("pedidos").update({
           forma_pagamento: "cartao", subtotal, frete, desconto_pix: 0, total, status: "pago",
+          mercadopago_payment_id: r.id ? String(r.id) : null,
         }).eq("id", p.id);
         toast.success("Pagamento aprovado!");
         onUpdated();
