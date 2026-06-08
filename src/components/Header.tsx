@@ -9,7 +9,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const CATEGORIAS = ["Medicamentos", "Manipulação", "Suplementos", "Vitaminas", "Higiene Pessoal", "Dermocosméticos"];
+const CATEGORIAS = ["Medicamentos", "Manipulacao", "Suplementos", "Vitaminas", "Higiene Pessoal", "Dermocosmeticos"];
 
 export function Logo({ light = false }: { light?: boolean }) {
   return (
@@ -42,7 +42,7 @@ export function Header() {
       {/* Announcement bar */}
       <div className="bg-primary text-white">
         <div className="container mx-auto px-4 py-2 text-center text-xs font-medium">
-          Frete grátis acima de R$ 199 · <span className="text-amber font-bold">10% OFF no PIX</span> · Entrega expressa
+          Frete gratis acima de R$ 199 · <span className="text-amber font-bold">10% OFF no PIX</span> · Entrega expressa
         </div>
       </div>
 
@@ -80,9 +80,14 @@ export function Header() {
                   <DropdownMenuLabel className="truncate text-xs text-muted-foreground">{user.email}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate({ to: "/conta" })}>Minha conta</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate({ to: "/conta" })}>Meus pedidos</DropdownMenuItem>
-                  {(isAdmin || isFuncionario) && <DropdownMenuItem onClick={() => navigate({ to: "/admin" })}>Painel Admin</DropdownMenuItem>}
-                  <DropdownMenuItem onClick={() => signOut()}><LogOut className="h-4 w-4 mr-2" />Sair</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate({ to: "/pedidos" })}>Meus pedidos</DropdownMenuItem>
+                  {(isAdmin || isFuncionario) && (
+                    <DropdownMenuItem onClick={() => navigate({ to: "/admin" })}>Painel Admin</DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => signOut()}>
+                    <LogOut className="h-4 w-4 mr-2" />Sair
+                  </DropdownMenuItem>
                 </>
               ) : (
                 <>
@@ -120,20 +125,12 @@ export function Header() {
       <nav className="border-t border-border">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
-            <Link
-              to="/produtos"
-              search={{} as any}
-              className="shrink-0 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-white"
-            >
+            <Link to="/produtos" search={{} as any} className="shrink-0 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-white">
               Todos
             </Link>
             {CATEGORIAS.map((c) => (
-              <Link
-                key={c}
-                to="/produtos"
-                search={{ categoria: c } as any}
-                className="shrink-0 rounded-full border border-border bg-background px-4 py-1.5 text-xs font-medium text-foreground/80 hover:border-primary hover:text-primary transition"
-              >
+              <Link key={c} to="/produtos" search={{ categoria: c } as any}
+                className="shrink-0 rounded-full border border-border bg-background px-4 py-1.5 text-xs font-medium text-foreground/80 hover:border-primary hover:text-primary transition">
                 {c}
               </Link>
             ))}
