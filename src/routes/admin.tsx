@@ -15,14 +15,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { brl } from "@/lib/format";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Download, Package, ShoppingBag, Users, UserCog, Ban, Check } from "lucide-react";
+import { Plus, Pencil, Trash2, Download, Package, ShoppingBag, Users, UserCog, Ban, Check, RotateCcw, Loader2 } from "lucide-react";
 import {
-  createFuncionario,
-  updateFuncionario,
-  deleteFuncionario,
-  setAccountActive,
-  listFuncionarios,
-  listClientes,
+  createFuncionario, updateFuncionario, deleteFuncionario,
+  setAccountActive, listFuncionarios, listClientes,
 } from "@/lib/staff.functions";
 
 export const Route = createFileRoute("/admin")({
@@ -54,7 +50,7 @@ function Admin() {
         <div className="mb-8">
           <p className="text-xs uppercase tracking-[0.2em] text-primary font-bold">Painel</p>
           <h1 className="font-display text-4xl font-extrabold mt-1">
-            Admin Farma Pro {isFuncionario && !isAdmin && <span className="text-sm font-normal text-muted-foreground">(funcionário)</span>}
+            Admin Farma Pro {isFuncionario && !isAdmin && <span className="text-sm font-normal text-muted-foreground">(funcionario)</span>}
           </h1>
         </div>
         <Tabs defaultValue="produtos">
@@ -116,7 +112,7 @@ function ProdutosAdmin() {
     if (!confirm("Excluir produto?")) return;
     const { error } = await supabase.from("produtos").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
-    toast.success("Excluído");
+    toast.success("Excluido");
     qc.invalidateQueries({ queryKey: ["admin-produtos"] });
   };
 
@@ -126,21 +122,19 @@ function ProdutosAdmin() {
         <p className="text-sm text-muted-foreground">{produtos.length} produtos</p>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button onClick={openNew} className="rounded-full gap-2">
-              <Plus className="h-4 w-4" /> Novo produto
-            </Button>
+            <Button onClick={openNew} className="rounded-full gap-2"><Plus className="h-4 w-4" /> Novo produto</Button>
           </DialogTrigger>
           <DialogContent className="max-w-xl">
             <DialogHeader><DialogTitle>{editing ? "Editar" : "Novo"} produto</DialogTitle></DialogHeader>
             <div className="space-y-3">
               <div><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
-              <div><Label>Descrição</Label><Textarea value={form.descricao ?? ""} onChange={(e) => setForm({ ...form, descricao: e.target.value })} /></div>
+              <div><Label>Descricao</Label><Textarea value={form.descricao ?? ""} onChange={(e) => setForm({ ...form, descricao: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>Preço (R$)</Label><Input type="number" step="0.01" value={form.preco} onChange={(e) => setForm({ ...form, preco: Number(e.target.value) })} /></div>
+                <div><Label>Preco (R$)</Label><Input type="number" step="0.01" value={form.preco} onChange={(e) => setForm({ ...form, preco: Number(e.target.value) })} /></div>
                 <div><Label>Estoque</Label><Input type="number" value={form.estoque} onChange={(e) => setForm({ ...form, estoque: Number(e.target.value) })} /></div>
                 <div><Label>Categoria</Label>
                   <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
-                    {["Medicamentos","Manipulação","Vitaminas","Higiene Pessoal","Dermocosméticos","Suplementos"].map((c) => <option key={c}>{c}</option>)}
+                    {["Medicamentos","Manipulacao","Vitaminas","Higiene Pessoal","Dermocosmeticos","Suplementos"].map((c) => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div><Label>Desconto (%)</Label><Input type="number" value={form.desconto ?? 0} onChange={(e) => setForm({ ...form, desconto: Number(e.target.value) })} /></div>
@@ -172,7 +166,7 @@ function ProdutosAdmin() {
 
       <div className="hidden md:block rounded-2xl border border-border bg-card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50"><tr className="text-left"><th className="p-3">Produto</th><th className="p-3">Categoria</th><th className="p-3">Preço</th><th className="p-3">Estoque</th><th className="p-3"></th></tr></thead>
+          <thead className="bg-muted/50"><tr className="text-left"><th className="p-3">Produto</th><th className="p-3">Categoria</th><th className="p-3">Preco</th><th className="p-3">Estoque</th><th className="p-3"></th></tr></thead>
           <tbody>
             {produtos.map((p) => (
               <tr key={p.id} className="border-t border-border">
@@ -193,17 +187,22 @@ function ProdutosAdmin() {
   );
 }
 
-const STATUS_PAGOS = ["pago", "em_preparacao", "a_caminho", "entregue", "cancelado"] as const;
+const STATUS_PAGOS = ["pago", "em_preparacao", "a_caminho", "entregue", "cancelado", "devolucao_solicitada", "devolucao_a_caminho", "devolucao_aprovada"] as const;
 const STATUS_LABELS: Record<string, string> = {
   pendente: "Pendente",
   aguardando_pagamento: "Aguardando pagamento",
+  aguardando_pix: "Aguardando PIX",
+  aguardando_boleto: "Aguardando boleto",
   pago: "Pago",
   processando: "Processando",
-  em_preparacao: "Em preparação",
+  em_preparacao: "Em preparacao",
   enviado: "Enviado",
   a_caminho: "A caminho",
   entregue: "Entregue",
   cancelado: "Cancelado",
+  devolucao_solicitada: "Devolucao solicitada",
+  devolucao_a_caminho: "Devolucao a caminho",
+  devolucao_aprovada: "Devolucao aprovada",
 };
 
 function PedidosAdmin() {
@@ -217,20 +216,23 @@ function PedidosAdmin() {
   });
 
   const PENDING = ["pendente", "aguardando_pagamento", "aguardando_pix", "aguardando_boleto"];
+  const DEVOLUCAO = ["devolucao_solicitada", "devolucao_a_caminho"];
   const aguardando = pedidos.filter((p: any) => PENDING.includes(p.status));
-  const pagos = pedidos.filter((p: any) => !PENDING.includes(p.status));
+  const pagos = pedidos.filter((p: any) => !PENDING.includes(p.status) && !DEVOLUCAO.includes(p.status));
+  const devolucoes = pedidos.filter((p: any) => DEVOLUCAO.includes(p.status));
 
   const exportar = () => {
     const rows = pedidos.map((p: any) => ({
       Data: new Date(p.criado_em).toLocaleString("pt-BR"),
-      Nome: p.nome_cliente, "E-mail": p.email, CEP: p.cep, Endereço: p.endereco,
+      Nome: p.nome_cliente, "E-mail": p.email, CEP: p.cep, Endereco: p.endereco,
       Cidade: p.cidade, Estado: p.estado,
-      Itens: (p.itens as any[]).map((i) => `${i.quantidade}× ${i.nome}`).join(" | "),
+      Itens: (p.itens as any[]).map((i) => `${i.quantidade}x ${i.nome}`).join(" | "),
       Subtotal: Number(p.subtotal), Frete: Number(p.frete),
       "Desconto PIX": Number(p.desconto_pix), Total: Number(p.total),
       "Forma de Pagamento": p.forma_pagamento,
       Status: STATUS_LABELS[p.status] ?? p.status,
-      "Código de Rastreio": (p as any).codigo_rastreio ?? "",
+      "Motivo Devolucao": p.motivo_devolucao ?? "",
+      "Codigo de Rastreio": (p as any).codigo_rastreio ?? "",
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -256,6 +258,12 @@ function PedidosAdmin() {
         <TabsList>
           <TabsTrigger value="aguardando">Aguardando pagamento ({aguardando.length})</TabsTrigger>
           <TabsTrigger value="pagos">Pagos ({pagos.length})</TabsTrigger>
+          <TabsTrigger value="devolucoes" className="relative">
+            Devolucoes ({devolucoes.length})
+            {devolucoes.length > 0 && (
+              <span className="ml-1.5 h-2 w-2 rounded-full bg-orange-500 inline-block" />
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="aguardando" className="mt-4">
@@ -290,9 +298,17 @@ function PedidosAdmin() {
             <p className="text-sm text-muted-foreground py-8 text-center">Nenhum pedido pago.</p>
           ) : (
             <div className="flex flex-col gap-3">
-              {pagos.map((p: any) => (
-                <PedidoPagoCard key={p.id} pedido={p} />
-              ))}
+              {pagos.map((p: any) => <PedidoPagoCard key={p.id} pedido={p} />)}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="devolucoes" className="mt-4">
+          {devolucoes.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma devolucao pendente.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {devolucoes.map((p: any) => <DevolucaoCard key={p.id} pedido={p} />)}
             </div>
           )}
         </TabsContent>
@@ -320,7 +336,7 @@ function PedidoPagoCard({ pedido }: { pedido: any }) {
     const { error } = await supabase.from("pedidos").update({ codigo_rastreio: rastreio.trim() || null } as any).eq("id", pedido.id);
     setSaving(false);
     if (error) { toast.error(error.message); return; }
-    toast.success("Código de rastreio salvo");
+    toast.success("Codigo de rastreio salvo");
     qc.invalidateQueries({ queryKey: ["admin-pedidos"] });
   };
 
@@ -343,21 +359,165 @@ function PedidoPagoCard({ pedido }: { pedido: any }) {
       <div className="grid sm:grid-cols-2 gap-3 pt-2 border-t border-border">
         <div>
           <Label className="text-xs">Status</Label>
-          <select
-            className="w-full h-9 mt-1 rounded-md border border-input bg-background px-3 text-sm"
-            value={status}
-            onChange={(e) => updateStatus(e.target.value)}
-          >
+          <select className="w-full h-9 mt-1 rounded-md border border-input bg-background px-3 text-sm"
+            value={status} onChange={(e) => updateStatus(e.target.value)}>
             {STATUS_PAGOS.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
           </select>
         </div>
         <div>
-          <Label className="text-xs">Código de rastreio</Label>
+          <Label className="text-xs">Codigo de rastreio</Label>
           <div className="flex gap-2 mt-1">
             <Input value={rastreio} onChange={(e) => setRastreio(e.target.value)} placeholder="Ex.: BR123456789BR" className="h-9" />
             <Button size="sm" onClick={saveRastreio} disabled={saving} className="h-9">Salvar</Button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DevolucaoCard({ pedido }: { pedido: any }) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const [openRejeitar, setOpenRejeitar] = useState(false);
+  const [openAprovar, setOpenAprovar] = useState(false);
+  const [senha, setSenha] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const atualizarStatus = async (novoStatus: string) => {
+    const { error } = await supabase.from("pedidos").update({ status: novoStatus }).eq("id", pedido.id);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["admin-pedidos"] });
+  };
+
+  const aprovarReembolso = async () => {
+    if (!senha) { toast.error("Digite a senha para confirmar"); return; }
+    setLoading(true);
+    try {
+      // Verifica a senha do admin
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: user!.email!,
+        password: senha,
+      });
+      if (authError) {
+        toast.error("Senha incorreta");
+        setLoading(false);
+        return;
+      }
+
+      // Chama o endpoint de estorno no MP
+      const r = await fetch("/api/mercadopago/refund", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payment_id: pedido.mercadopago_payment_id }),
+      });
+      const data = await r.json();
+
+      if (!r.ok) {
+        toast.error(data?.error || "Falha ao processar estorno no Mercado Pago");
+        setLoading(false);
+        return;
+      }
+
+      await atualizarStatus("devolucao_aprovada");
+      toast.success("Estorno realizado! Dinheiro devolvido ao cliente.");
+      setOpenAprovar(false);
+      setSenha("");
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao processar estorno");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const rejeitar = async () => {
+    await atualizarStatus("entregue");
+    toast.success("Devolucao rejeitada. Pedido voltou para entregue.");
+    setOpenRejeitar(false);
+  };
+
+  return (
+    <div className="rounded-2xl border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900 p-4 space-y-3">
+      <div className="flex justify-between items-start gap-3 flex-wrap">
+        <div>
+          <p className="font-semibold text-sm">{pedido.nome_cliente}</p>
+          <p className="text-xs text-muted-foreground">{pedido.email}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            #{pedido.id.slice(0, 8).toUpperCase()} · {new Date(pedido.criado_em).toLocaleString("pt-BR")} · {pedido.cidade}/{pedido.estado}
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="text-base font-bold text-orange-700">{brl(Number(pedido.total))}</div>
+          <span className="text-xs bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 px-2 py-1 rounded-full">
+            {STATUS_LABELS[pedido.status]}
+          </span>
+        </div>
+      </div>
+
+      {pedido.motivo_devolucao && (
+        <div className="rounded-lg bg-white dark:bg-background border border-orange-200 dark:border-orange-900 p-3 text-sm">
+          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-1">Motivo informado</p>
+          <p>{pedido.motivo_devolucao}</p>
+          {pedido.devolucao_solicitada_em && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Solicitado em {new Date(pedido.devolucao_solicitada_em).toLocaleDateString("pt-BR")}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="flex gap-2 pt-1">
+        {/* Avanca status manualmente (produto a caminho de volta) */}
+        {pedido.status === "devolucao_solicitada" && (
+          <Button size="sm" variant="outline" className="rounded-full gap-2 border-orange-400 text-orange-700"
+            onClick={() => atualizarStatus("devolucao_a_caminho")}>
+            <RotateCcw className="h-3.5 w-3.5" /> A caminho
+          </Button>
+        )}
+
+        {/* Aprovar reembolso — exige senha e chama API do MP */}
+        <Dialog open={openAprovar} onOpenChange={setOpenAprovar}>
+          <Button size="sm" className="rounded-full gap-2 bg-green-600 hover:bg-green-700"
+            onClick={() => { setSenha(""); setOpenAprovar(true); }}>
+            <Check className="h-3.5 w-3.5" /> Aprovar reembolso
+          </Button>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Confirmar reembolso</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="rounded-lg bg-muted/50 p-3 text-sm space-y-1">
+                <p><span className="text-muted-foreground">Cliente:</span> {pedido.nome_cliente}</p>
+                <p><span className="text-muted-foreground">Valor:</span> <span className="font-bold text-primary">{brl(Number(pedido.total))}</span></p>
+                <p><span className="text-muted-foreground">Motivo:</span> {pedido.motivo_devolucao}</p>
+              </div>
+              <div>
+                <Label>Digite sua senha para autorizar o estorno</Label>
+                <Input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} className="mt-1"
+                  placeholder="Sua senha de admin" onKeyDown={(e) => e.key === "Enter" && aprovarReembolso()} />
+              </div>
+              <Button className="w-full rounded-full bg-green-600 hover:bg-green-700" disabled={loading || !senha} onClick={aprovarReembolso}>
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : `Confirmar estorno de ${brl(Number(pedido.total))}`}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Rejeitar */}
+        <Dialog open={openRejeitar} onOpenChange={setOpenRejeitar}>
+          <Button size="sm" variant="outline" className="rounded-full gap-2 border-destructive text-destructive hover:bg-destructive/5"
+            onClick={() => setOpenRejeitar(true)}>
+            <Trash2 className="h-3.5 w-3.5" /> Rejeitar
+          </Button>
+          <DialogContent className="max-w-sm">
+            <DialogHeader><DialogTitle>Rejeitar devolucao?</DialogTitle></DialogHeader>
+            <p className="text-sm text-muted-foreground">O pedido voltara para o status "Entregue" e o cliente nao recebera o reembolso.</p>
+            <div className="flex gap-2 mt-2">
+              <Button variant="outline" className="flex-1 rounded-full" onClick={() => setOpenRejeitar(false)}>Cancelar</Button>
+              <Button variant="destructive" className="flex-1 rounded-full" onClick={rejeitar}>Rejeitar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
@@ -388,11 +548,11 @@ function EquipeAdmin() {
     try {
       if (editing) {
         await update({ data: { id: editing.id, nome: form.nome, senha: form.senha || undefined } });
-        toast.success("Funcionário atualizado");
+        toast.success("Funcionario atualizado");
       } else {
         if (!form.senha || form.senha.length < 6) { toast.error("Senha deve ter 6+ caracteres"); return; }
         await create({ data: { nome: form.nome, email: form.email, senha: form.senha } });
-        toast.success("Funcionário criado");
+        toast.success("Funcionario criado");
       }
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["admin-funcionarios"] });
@@ -408,10 +568,10 @@ function EquipeAdmin() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Excluir funcionário definitivamente?")) return;
+    if (!confirm("Excluir funcionario definitivamente?")) return;
     try {
       await del({ data: { id } });
-      toast.success("Excluído");
+      toast.success("Excluido");
       qc.invalidateQueries({ queryKey: ["admin-funcionarios"] });
     } catch (e: any) { toast.error(e.message ?? "Erro"); }
   };
@@ -419,18 +579,18 @@ function EquipeAdmin() {
   return (
     <div>
       <div className="flex justify-between mb-4">
-        <p className="text-sm text-muted-foreground">{funcionarios.length} funcionários</p>
+        <p className="text-sm text-muted-foreground">{funcionarios.length} funcionarios</p>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button onClick={openNew} className="rounded-full gap-2"><Plus className="h-4 w-4" /> Novo funcionário</Button>
+            <Button onClick={openNew} className="rounded-full gap-2"><Plus className="h-4 w-4" /> Novo funcionario</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>{editing ? "Editar funcionário" : "Cadastrar funcionário"}</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editing ? "Editar funcionario" : "Cadastrar funcionario"}</DialogTitle></DialogHeader>
             <div className="space-y-3">
               <div><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
               <div><Label>E-mail</Label><Input type="email" disabled={!!editing} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
               <div>
-                <Label>{editing ? "Nova senha (opcional)" : "Senha temporária"}</Label>
+                <Label>{editing ? "Nova senha (opcional)" : "Senha temporaria"}</Label>
                 <Input type="text" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} />
               </div>
               <Button onClick={save} className="w-full">{editing ? "Salvar" : "Criar"}</Button>
@@ -442,7 +602,7 @@ function EquipeAdmin() {
       {isLoading ? <p className="text-sm text-muted-foreground">Carregando...</p> : (
         <div className="rounded-2xl border border-border bg-card overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-muted/50"><tr className="text-left"><th className="p-3">Nome</th><th className="p-3">E-mail</th><th className="p-3">Status</th><th className="p-3 text-right">Ações</th></tr></thead>
+            <thead className="bg-muted/50"><tr className="text-left"><th className="p-3">Nome</th><th className="p-3">E-mail</th><th className="p-3">Status</th><th className="p-3 text-right">Acoes</th></tr></thead>
             <tbody>
               {funcionarios.map((f: { id: string; nome: string | null; email: string | null; ativo: boolean }) => (
                 <tr key={f.id} className="border-t border-border">
@@ -462,7 +622,7 @@ function EquipeAdmin() {
                   </td>
                 </tr>
               ))}
-              {!funcionarios.length && <tr><td colSpan={4} className="p-6 text-center text-sm text-muted-foreground">Nenhum funcionário cadastrado</td></tr>}
+              {!funcionarios.length && <tr><td colSpan={4} className="p-6 text-center text-sm text-muted-foreground">Nenhum funcionario cadastrado</td></tr>}
             </tbody>
           </table>
         </div>
@@ -496,7 +656,7 @@ function ClientesAdmin() {
       {isLoading ? <p className="text-sm text-muted-foreground">Carregando...</p> : (
         <div className="rounded-2xl border border-border bg-card overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-muted/50"><tr className="text-left"><th className="p-3">Nome</th><th className="p-3">E-mail</th><th className="p-3">Cadastro</th><th className="p-3">Pedidos</th><th className="p-3">Status</th><th className="p-3 text-right">Ações</th></tr></thead>
+            <thead className="bg-muted/50"><tr className="text-left"><th className="p-3">Nome</th><th className="p-3">E-mail</th><th className="p-3">Cadastro</th><th className="p-3">Pedidos</th><th className="p-3">Status</th><th className="p-3 text-right">Acoes</th></tr></thead>
             <tbody>
               {clientes.map((c: any) => (
                 <tr key={c.id} className="border-t border-border">
