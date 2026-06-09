@@ -17,6 +17,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProdutoIdRouteImport } from './routes/produto.$id'
 import { Route as PedidoIdRouteImport } from './routes/pedido.$id'
+import { Route as ApiMercadopagoRefundRouteImport } from './routes/api/mercadopago.refund'
 import { Route as ApiMercadopagoStatusRouteImport } from './routes/api/mercadopago.status'
 import { Route as ApiMercadopagoCreateRouteImport } from './routes/api/mercadopago.create'
 import { Route as ApiPublicMercadopagoWebhookRouteImport } from './routes/api/public/mercadopago.webhook'
@@ -35,6 +36,7 @@ const AdminRoute = AdminRouteImport.update({ id: '/admin', path: '/admin', getPa
 const IndexRoute = IndexRouteImport.update({ id: '/', path: '/', getParentRoute: () => rootRouteImport } as any)
 const ProdutoIdRoute = ProdutoIdRouteImport.update({ id: '/produto/$id', path: '/produto/$id', getParentRoute: () => rootRouteImport } as any)
 const PedidoIdRoute = PedidoIdRouteImport.update({ id: '/pedido/$id', path: '/pedido/$id', getParentRoute: () => rootRouteImport } as any)
+const ApiMercadopagoRefundRoute = ApiMercadopagoRefundRouteImport.update({ id: '/api/mercadopago/refund', path: '/api/mercadopago/refund', getParentRoute: () => rootRouteImport } as any)
 const ApiMercadopagoStatusRoute = ApiMercadopagoStatusRouteImport.update({ id: '/api/mercadopago/status', path: '/api/mercadopago/status', getParentRoute: () => rootRouteImport } as any)
 const ApiMercadopagoCreateRoute = ApiMercadopagoCreateRouteImport.update({ id: '/api/mercadopago/create', path: '/api/mercadopago/create', getParentRoute: () => rootRouteImport } as any)
 const ApiPublicMercadopagoWebhookRoute = ApiPublicMercadopagoWebhookRouteImport.update({ id: '/api/public/mercadopago/webhook', path: '/api/public/mercadopago/webhook', getParentRoute: () => rootRouteImport } as any)
@@ -54,6 +56,7 @@ export interface FileRoutesByFullPath {
   '/verificar-email': typeof VerificarEmailRoute
   '/pedido/$id': typeof PedidoIdRoute
   '/produto/$id': typeof ProdutoIdRoute
+  '/api/mercadopago/refund': typeof ApiMercadopagoRefundRoute
   '/api/mercadopago/status': typeof ApiMercadopagoStatusRoute
   '/api/mercadopago/create': typeof ApiMercadopagoCreateRoute
   '/api/public/mercadopago/webhook': typeof ApiPublicMercadopagoWebhookRoute
@@ -73,6 +76,7 @@ export interface FileRoutesByTo {
   '/verificar-email': typeof VerificarEmailRoute
   '/pedido/$id': typeof PedidoIdRoute
   '/produto/$id': typeof ProdutoIdRoute
+  '/api/mercadopago/refund': typeof ApiMercadopagoRefundRoute
   '/api/mercadopago/status': typeof ApiMercadopagoStatusRoute
   '/api/mercadopago/create': typeof ApiMercadopagoCreateRoute
   '/api/public/mercadopago/webhook': typeof ApiPublicMercadopagoWebhookRoute
@@ -93,16 +97,17 @@ export interface FileRoutesById {
   '/verificar-email': typeof VerificarEmailRoute
   '/pedido/$id': typeof PedidoIdRoute
   '/produto/$id': typeof ProdutoIdRoute
+  '/api/mercadopago/refund': typeof ApiMercadopagoRefundRoute
   '/api/mercadopago/status': typeof ApiMercadopagoStatusRoute
   '/api/mercadopago/create': typeof ApiMercadopagoCreateRoute
   '/api/public/mercadopago/webhook': typeof ApiPublicMercadopagoWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/cadastro' | '/carrinho' | '/checkout' | '/conta' | '/login' | '/pedidos' | '/produtos' | '/recuperar-senha' | '/reset-password' | '/verificar-email' | '/pedido/$id' | '/produto/$id' | '/api/mercadopago/status' | '/api/mercadopago/create' | '/api/public/mercadopago/webhook'
+  fullPaths: '/' | '/admin' | '/cadastro' | '/carrinho' | '/checkout' | '/conta' | '/login' | '/pedidos' | '/produtos' | '/recuperar-senha' | '/reset-password' | '/verificar-email' | '/pedido/$id' | '/produto/$id' | '/api/mercadopago/refund' | '/api/mercadopago/status' | '/api/mercadopago/create' | '/api/public/mercadopago/webhook'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/cadastro' | '/carrinho' | '/checkout' | '/conta' | '/login' | '/pedidos' | '/produtos' | '/recuperar-senha' | '/reset-password' | '/verificar-email' | '/pedido/$id' | '/produto/$id' | '/api/mercadopago/status' | '/api/mercadopago/create' | '/api/public/mercadopago/webhook'
-  id: '__root__' | '/' | '/admin' | '/cadastro' | '/carrinho' | '/checkout' | '/conta' | '/login' | '/pedidos' | '/produtos' | '/recuperar-senha' | '/reset-password' | '/verificar-email' | '/pedido/$id' | '/produto/$id' | '/api/mercadopago/status' | '/api/mercadopago/create' | '/api/public/mercadopago/webhook'
+  to: '/' | '/admin' | '/cadastro' | '/carrinho' | '/checkout' | '/conta' | '/login' | '/pedidos' | '/produtos' | '/recuperar-senha' | '/reset-password' | '/verificar-email' | '/pedido/$id' | '/produto/$id' | '/api/mercadopago/refund' | '/api/mercadopago/status' | '/api/mercadopago/create' | '/api/public/mercadopago/webhook'
+  id: '__root__' | '/' | '/admin' | '/cadastro' | '/carrinho' | '/checkout' | '/conta' | '/login' | '/pedidos' | '/produtos' | '/recuperar-senha' | '/reset-password' | '/verificar-email' | '/pedido/$id' | '/produto/$id' | '/api/mercadopago/refund' | '/api/mercadopago/status' | '/api/mercadopago/create' | '/api/public/mercadopago/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -120,6 +125,7 @@ export interface RootRouteChildren {
   VerificarEmailRoute: typeof VerificarEmailRoute
   PedidoIdRoute: typeof PedidoIdRoute
   ProdutoIdRoute: typeof ProdutoIdRoute
+  ApiMercadopagoRefundRoute: typeof ApiMercadopagoRefundRoute
   ApiMercadopagoStatusRoute: typeof ApiMercadopagoStatusRoute
   ApiMercadopagoCreateRoute: typeof ApiMercadopagoCreateRoute
   ApiPublicMercadopagoWebhookRoute: typeof ApiPublicMercadopagoWebhookRoute
@@ -141,6 +147,7 @@ declare module '@tanstack/react-router' {
     '/': { id: '/'; path: '/'; fullPath: '/'; preLoaderRoute: typeof IndexRouteImport; parentRoute: typeof rootRouteImport }
     '/produto/$id': { id: '/produto/$id'; path: '/produto/$id'; fullPath: '/produto/$id'; preLoaderRoute: typeof ProdutoIdRouteImport; parentRoute: typeof rootRouteImport }
     '/pedido/$id': { id: '/pedido/$id'; path: '/pedido/$id'; fullPath: '/pedido/$id'; preLoaderRoute: typeof PedidoIdRouteImport; parentRoute: typeof rootRouteImport }
+    '/api/mercadopago/refund': { id: '/api/mercadopago/refund'; path: '/api/mercadopago/refund'; fullPath: '/api/mercadopago/refund'; preLoaderRoute: typeof ApiMercadopagoRefundRouteImport; parentRoute: typeof rootRouteImport }
     '/api/mercadopago/status': { id: '/api/mercadopago/status'; path: '/api/mercadopago/status'; fullPath: '/api/mercadopago/status'; preLoaderRoute: typeof ApiMercadopagoStatusRouteImport; parentRoute: typeof rootRouteImport }
     '/api/mercadopago/create': { id: '/api/mercadopago/create'; path: '/api/mercadopago/create'; fullPath: '/api/mercadopago/create'; preLoaderRoute: typeof ApiMercadopagoCreateRouteImport; parentRoute: typeof rootRouteImport }
     '/api/public/mercadopago/webhook': { id: '/api/public/mercadopago/webhook'; path: '/api/public/mercadopago/webhook'; fullPath: '/api/public/mercadopago/webhook'; preLoaderRoute: typeof ApiPublicMercadopagoWebhookRouteImport; parentRoute: typeof rootRouteImport }
@@ -148,22 +155,10 @@ declare module '@tanstack/react-router' {
 }
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute,
-  AdminRoute,
-  CadastroRoute,
-  CarrinhoRoute,
-  CheckoutRoute,
-  ContaRoute,
-  LoginRoute,
-  PedidosRoute,
-  ProdutosRoute,
-  RecuperarSenhaRoute,
-  ResetPasswordRoute,
-  VerificarEmailRoute,
-  PedidoIdRoute,
-  ProdutoIdRoute,
-  ApiMercadopagoStatusRoute,
-  ApiMercadopagoCreateRoute,
+  IndexRoute, AdminRoute, CadastroRoute, CarrinhoRoute, CheckoutRoute, ContaRoute,
+  LoginRoute, PedidosRoute, ProdutosRoute, RecuperarSenhaRoute, ResetPasswordRoute,
+  VerificarEmailRoute, PedidoIdRoute, ProdutoIdRoute,
+  ApiMercadopagoRefundRoute, ApiMercadopagoStatusRoute, ApiMercadopagoCreateRoute,
   ApiPublicMercadopagoWebhookRoute,
 }
 
