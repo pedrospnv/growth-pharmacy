@@ -24,9 +24,9 @@ function ContaPage() {
   const queryClient = useQueryClient();
   const [aba, setAba] = useState<Aba>("informacoes");
 
-  const [info, setInfo] = useState({ nome: "", cpf: "", email: "" });
+  const [info, setInfo] = useState({ nome: "", cpf: "", email: "", telefone: "" });
   const [endereco, setEndereco] = useState({
-    cep: "", rua: "", numero: "", complemento: "", bairro: "", cidade: "", estado: "", telefone: "",
+    cep: "", rua: "", numero: "", complemento: "", bairro: "", cidade: "", estado: "",
   });
   const [cepLoading, setCepLoading] = useState(false);
 
@@ -54,6 +54,7 @@ function ContaPage() {
       nome: profile.nome || "",
       cpf: profile.cpf ? maskCpf(profile.cpf) : "",
       email: profile.email || user?.email || "",
+      telefone: profile.telefone || "",
     });
     setEndereco({
       cep: profile.cep || "",
@@ -63,7 +64,6 @@ function ContaPage() {
       bairro: profile.bairro || "",
       cidade: profile.cidade || "",
       estado: profile.estado || "",
-      telefone: profile.telefone || "",
     });
   }, [profile, user]);
 
@@ -71,7 +71,12 @@ function ContaPage() {
     mutationFn: async () => {
       const { error } = await supabase
         .from("profiles")
-        .update({ nome: info.nome, cpf: onlyDigits(info.cpf), email: info.email })
+        .update({
+          nome: info.nome,
+          cpf: onlyDigits(info.cpf),
+          email: info.email,
+          telefone: info.telefone,
+        })
         .eq("id", user!.id);
       if (error) throw error;
     },
@@ -87,9 +92,13 @@ function ContaPage() {
       const { error } = await supabase
         .from("profiles")
         .update({
-          cep: endereco.cep, rua: endereco.rua, numero: endereco.numero,
-          complemento: endereco.complemento, bairro: endereco.bairro,
-          cidade: endereco.cidade, estado: endereco.estado, telefone: endereco.telefone,
+          cep: endereco.cep,
+          rua: endereco.rua,
+          numero: endereco.numero,
+          complemento: endereco.complemento,
+          bairro: endereco.bairro,
+          cidade: endereco.cidade,
+          estado: endereco.estado,
         })
         .eq("id", user!.id);
       if (error) throw error;
@@ -174,6 +183,10 @@ function ContaPage() {
               <Input value={info.cpf} onChange={(e) => setInfo({ ...info, cpf: maskCpf(e.target.value) })} placeholder="000.000.000-00" />
             </div>
             <div>
+              <Label>Telefone</Label>
+              <Input value={info.telefone} onChange={(e) => setInfo({ ...info, telefone: e.target.value })} placeholder="(00) 00000-0000" />
+            </div>
+            <div>
               <Label>E-mail</Label>
               <Input value={info.email} disabled className="opacity-60 cursor-not-allowed" />
               <p className="text-xs text-muted-foreground mt-1">O e-mail nao pode ser alterado aqui.</p>
@@ -189,10 +202,6 @@ function ContaPage() {
           <section className="rounded-2xl border border-border bg-card p-6 max-w-lg space-y-5">
             <h2 className="font-display text-xl font-bold">Meu endereco</h2>
             <p className="text-sm text-muted-foreground">Salvo aqui, sera preenchido automaticamente no checkout.</p>
-            <div>
-              <Label>Telefone</Label>
-              <Input value={endereco.telefone} onChange={(e) => setEndereco({ ...endereco, telefone: e.target.value })} placeholder="(00) 00000-0000" />
-            </div>
             <div>
               <Label>CEP</Label>
               <Input value={endereco.cep} onChange={(e) => {
