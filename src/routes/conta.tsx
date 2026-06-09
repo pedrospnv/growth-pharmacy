@@ -53,7 +53,7 @@ function ContaPage() {
     setInfo({
       nome: profile.nome || "",
       cpf: profile.cpf ? maskCpf(profile.cpf) : "",
-      email: profile.email || user?.email || "",
+      email: user?.email || "",
       telefone: profile.telefone || "",
     });
     setEndereco({
@@ -74,7 +74,6 @@ function ContaPage() {
         .update({
           nome: info.nome,
           cpf: onlyDigits(info.cpf),
-          email: info.email,
           telefone: info.telefone,
         })
         .eq("id", user!.id);
