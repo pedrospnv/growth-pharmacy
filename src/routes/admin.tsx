@@ -15,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { brl } from "@/lib/format";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Download, Package, ShoppingBag, Users, UserCog, Ban, Check, RotateCcw, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Download, Package, ShoppingBag, Users, UserCog, Ban, Check, RotateCcw, Loader2, Calendar, CheckCircle2 } from "lucide-react";
 import {
   createFuncionario, updateFuncionario, deleteFuncionario,
   setAccountActive, listFuncionarios, listClientes,
@@ -379,9 +379,9 @@ function PedidoFinalizadoCard({ pedido, showDevolucao }: { pedido: any; showDevo
       <div className="text-xs text-muted-foreground border-t border-border pt-3 space-y-1">
         <p className="line-clamp-1">{itens.map((i: any) => `${i.quantidade}x ${i.nome}`).join(" · ")}</p>
         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
-          <span>📅 Pedido em {data}</span>
-          {entregue && <span>✅ Entregue em {entregue}</span>}
-          {pedido.codigo_rastreio && <span>📦 Rastreio: <span className="font-mono">{pedido.codigo_rastreio}</span></span>}
+          <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> Pedido em {data}</span>
+          {entregue && <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-600" /> Entregue em {entregue}</span>}
+          {pedido.codigo_rastreio && <span className="flex items-center gap-1"><Package className="h-3 w-3" /> Rastreio: <span className="font-mono">{pedido.codigo_rastreio}</span></span>}
         </div>
       </div>
 
