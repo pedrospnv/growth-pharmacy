@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { brl, maskCardNumber, maskCardExp, maskCpf, onlyDigits } from "@/lib/format";
 import { toast } from "sonner";
-import { CheckCircle2, Truck, ExternalLink, QrCode, CreditCard, Barcode, Copy, Loader2, Clock, RotateCcw, PackageCheck } from "lucide-react";
+import { CheckCircle2, Truck, ExternalLink, QrCode, CreditCard, Barcode, Copy, Loader2, Clock, RotateCcw, PackageCheck, MessageCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const STATUS_INFO: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; className?: string }> = {
@@ -116,19 +116,30 @@ function Pedido() {
 
           {/* Aviso se devolução já foi solicitada */}
           {["devolucao_solicitada", "devolucao_a_caminho", "devolucao_aprovada"].includes(p.status) && (
-            <div className="rounded-xl border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900 p-4 text-sm">
-              <div className="flex items-center gap-2 font-semibold text-orange-700 dark:text-orange-400 mb-1">
-                <RotateCcw className="h-4 w-4" />
-                {STATUS_INFO[p.status]?.label}
+            <div className="rounded-xl border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900 p-4 text-sm space-y-3">
+              <div>
+                <div className="flex items-center gap-2 font-semibold text-orange-700 dark:text-orange-400 mb-1">
+                  <RotateCcw className="h-4 w-4" />
+                  {STATUS_INFO[p.status]?.label}
+                </div>
+                {(p as any).motivo_devolucao && (
+                  <p className="text-orange-600 dark:text-orange-300 text-xs">Motivo: {(p as any).motivo_devolucao}</p>
+                )}
+                {(p as any).devolucao_solicitada_em && (
+                  <p className="text-orange-500 text-xs mt-1">
+                    Solicitado em {new Date((p as any).devolucao_solicitada_em).toLocaleDateString("pt-BR")}
+                  </p>
+                )}
               </div>
-              {(p as any).motivo_devolucao && (
-                <p className="text-orange-600 dark:text-orange-300 text-xs">Motivo: {(p as any).motivo_devolucao}</p>
-              )}
-              {(p as any).devolucao_solicitada_em && (
-                <p className="text-orange-500 text-xs mt-1">
-                  Solicitado em {new Date((p as any).devolucao_solicitada_em).toLocaleDateString("pt-BR")}
-                </p>
-              )}
+              <a
+                href={`https://wa.me/5512992512045?text=${encodeURIComponent(`Olá, preciso de suporte para o pedido #${p.id.slice(0, 8).toUpperCase()} — Motivo da devolução: ${(p as any).motivo_devolucao ?? "não informado"}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full rounded-full border border-orange-300 bg-white dark:bg-background px-4 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-50 transition"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Falar com o suporte
+              </a>
             </div>
           )}
         </div>
