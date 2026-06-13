@@ -7,7 +7,7 @@
 /* Farma Pro — navy + amber, clean minimal */
 
 @theme inline {
-  --font-display: "Inter", system-ui, sans-serif;
+  --font-display: "Syne", system-ui, sans-serif;
   --font-sans: "Inter", system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -112,9 +112,9 @@
 
 @layer base {
   * { border-color: var(--color-border); }
-  html { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+  html { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
   body { background-color: var(--color-background); color: var(--color-foreground); }
-  h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.02em; font-weight: 800; }
+  h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.03em; font-weight: 800; line-height: 1.1; }
 }
 
 @layer utilities {

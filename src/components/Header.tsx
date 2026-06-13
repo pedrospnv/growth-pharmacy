@@ -18,9 +18,8 @@ export function Logo({ light = false }: { light?: boolean }) {
       <div className={`grid h-8 w-8 place-items-center rounded-lg ${light ? "bg-amber" : "bg-primary"}`}>
         <Plus className={`h-4 w-4 ${light ? "text-primary" : "text-white"}`} strokeWidth={3} />
       </div>
-      <span className="font-display text-xl font-extrabold tracking-tight leading-none">
-        <span className={light ? "text-white" : "text-primary"}>farma</span>
-        <span className="text-amber">pro</span>
+      <span className="font-display text-xl font-extrabold leading-none tracking-tight">
+        <span className={light ? "text-white" : "text-primary"}>farma</span><span className="text-amber">pro</span>
       </span>
     </div>
   );

@@ -1,13 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Truck, ShieldCheck, Clock, ArrowRight, Pill, FlaskConical, Dumbbell, Leaf, Sparkles, Droplets,
-} from "lucide-react";
+import { Truck, ShieldCheck, Zap, ArrowRight, ArrowUpRight, Pill, FlaskConical, Dumbbell, Leaf, Sparkles, Droplets } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ProductCard, type Produto } from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
+import { brl } from "@/lib/format";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -34,7 +33,7 @@ function Home() {
     queryFn: async () => {
       const { data } = await supabase
         .from("produtos")
-        .select("id,nome,preco,categoria,imagem_url,desconto,destaque")
+        .select("id,nome,preco,categoria,imagem_url,desconto,destaque,estoque")
         .order("destaque", { ascending: false })
         .limit(8);
       return (data ?? []) as Produto[];
@@ -46,7 +45,7 @@ function Home() {
     queryFn: async () => {
       const { data } = await supabase
         .from("produtos")
-        .select("id,nome,preco,categoria,imagem_url,desconto")
+        .select("id,nome,preco,categoria,imagem_url,desconto,estoque")
         .gt("desconto", 0)
         .order("desconto", { ascending: false })
         .limit(4);
@@ -58,110 +57,158 @@ function Home() {
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
 
-      {/* HERO */}
-      <section className="bg-primary text-white">
-        <div className="container mx-auto px-4 py-12 md:py-24 max-w-5xl text-center">
-          <span className="inline-block rounded-full bg-amber px-4 py-1.5 text-xs font-bold text-primary uppercase tracking-wider">
-            10% OFF pagando no PIX
-          </span>
-          <h1 className="mt-4 font-display text-3xl md:text-6xl lg:text-7xl font-black leading-[1.05] text-balance">
-            Sua farmácia,<br />agora <span className="text-amber">profissional</span>.
-          </h1>
-          <p className="mt-6 text-base md:text-lg text-white/75 max-w-2xl mx-auto">
-            Medicamentos, manipulação, suplementos e dermocosméticos com entrega expressa e atendimento farmacêutico especializado.
-          </p>
-          <div className="mt-8 flex gap-3 flex-wrap justify-center">
-            <Button asChild size="lg" className="rounded-lg bg-amber text-primary hover:bg-amber/90 font-bold px-8 h-12">
-              <Link to="/produtos">Comprar agora <ArrowRight className="h-4 w-4" /></Link>
-            </Button>
-            <Button asChild size="lg" variant="outline" className="rounded-lg border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white px-8 h-12">
-              <Link to="/produtos" search={{ categoria: "Manipulação" } as any}>Manipulação</Link>
-            </Button>
+      {/* HERO — assimétrico, editorial */}
+      <section className="bg-primary overflow-hidden">
+        <div className="container mx-auto px-4 max-w-6xl">
+          <div className="grid md:grid-cols-[1fr,auto] gap-0 items-end">
+
+            {/* Texto */}
+            <div className="py-14 md:py-20 pr-0 md:pr-16">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 mb-6">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber" />
+                <span className="text-xs font-semibold text-white/90 tracking-wide">10% OFF pagando no PIX</span>
+              </div>
+              <h1 className="font-display text-4xl md:text-6xl lg:text-7xl font-extrabold leading-[1] text-white">
+                Saúde que<br />
+                <span className="text-amber">cabe no</span><br />
+                bolso.
+              </h1>
+              <p className="mt-5 text-sm md:text-base text-white/60 max-w-sm leading-relaxed">
+                Medicamentos, manipulação e dermocosméticos com entrega expressa. Sem filas, sem estresse.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Button asChild size="lg" className="rounded-full bg-amber text-primary hover:bg-amber/90 font-bold h-11 px-6 gap-2">
+                  <Link to="/produtos">Ver produtos <ArrowRight className="h-4 w-4" /></Link>
+                </Button>
+                <Button asChild variant="ghost" size="lg" className="rounded-full text-white/70 hover:text-white hover:bg-white/10 h-11 px-6">
+                  <Link to="/produtos" search={{ categoria: "Manipulação" } as any}>Manipulação</Link>
+                </Button>
+              </div>
+            </div>
+
+            {/* Stats laterais — visíveis só no desktop */}
+            <div className="hidden md:flex flex-col justify-end pb-20 gap-6 border-l border-white/10 pl-12">
+              {[
+                { n: "48h", label: "Entrega expressa" },
+                { n: "10%", label: "OFF no PIX" },
+                { n: "100%", label: "Seguro e certificado" },
+              ].map(({ n, label }) => (
+                <div key={n}>
+                  <p className="font-display text-3xl font-extrabold text-white leading-none">{n}</p>
+                  <p className="text-xs text-white/50 mt-1">{label}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* TRUST BAR */}
-      <section className="border-b border-border bg-background">
-        <div className="container mx-auto px-4 py-6 grid grid-cols-3 gap-4 max-w-4xl">
-          {[
-            { icon: Truck, t: "Frete grátis", s: "Acima de R$ 199" },
-            { icon: ShieldCheck, t: "Loja segura", s: "Farmácia certificada" },
-            { icon: Clock, t: "Entrega rápida", s: "Em até 48h" },
-          ].map(({ icon: Icon, t, s }) => (
-            <div key={t} className="flex items-center gap-3 justify-center text-center md:text-left">
-              <div className="grid h-10 w-10 place-items-center rounded-lg bg-surface text-primary shrink-0">
-                <Icon className="h-5 w-5" />
+      {/* TRUST BAR — linha fina, sem cards */}
+      <section className="border-b border-border">
+        <div className="container mx-auto px-4 max-w-5xl">
+          <div className="grid grid-cols-3 divide-x divide-border">
+            {[
+              { icon: Truck, t: "Frete grátis acima de R$ 199" },
+              { icon: ShieldCheck, t: "Farmácia certificada e segura" },
+              { icon: Zap, t: "Entrega em até 48h" },
+            ].map(({ icon: Icon, t }) => (
+              <div key={t} className="flex items-center justify-center gap-2.5 py-4 px-3">
+                <Icon className="h-4 w-4 text-primary shrink-0" />
+                <p className="text-xs font-medium text-foreground/70 hidden sm:block">{t}</p>
               </div>
-              <div className="hidden sm:block">
-                <p className="text-sm font-bold text-primary leading-tight">{t}</p>
-                <p className="text-xs text-muted-foreground">{s}</p>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* CATEGORIAS */}
-      <section className="container mx-auto px-4 py-16">
-        <div className="text-center mb-10">
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-bold">Explore</p>
-          <h2 className="font-display text-3xl md:text-4xl font-black mt-2 text-primary">Categorias</h2>
+      {/* CATEGORIAS — lista horizontal com separadores */}
+      <section className="container mx-auto px-4 py-14 max-w-6xl">
+        <div className="flex items-end justify-between mb-8">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground font-bold">Explore</p>
+            <h2 className="font-display text-2xl md:text-3xl font-extrabold mt-1 text-primary">Categorias</h2>
+          </div>
+          <Link to="/produtos" className="text-xs font-semibold text-muted-foreground hover:text-primary transition-colors flex items-center gap-1">
+            Ver tudo <ArrowUpRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
           {CATEGORIAS.map(({ nome, icon: Icon }) => (
             <Link
               key={nome}
               to="/produtos"
               search={{ categoria: nome } as any}
-              className="group flex flex-col items-center justify-center gap-3 p-4 md:p-6 rounded-xl bg-surface border border-border hover:border-primary hover:shadow-card transition-all"
+              className="group flex flex-col items-center gap-2.5 p-4 rounded-2xl bg-surface hover:bg-primary transition-colors"
             >
-              <div className="grid h-12 w-12 place-items-center rounded-lg bg-white text-primary group-hover:bg-primary group-hover:text-white transition-colors">
-                <Icon className="h-6 w-6" strokeWidth={1.75} />
-              </div>
-              <p className="text-[11px] md:text-sm font-semibold text-primary text-center leading-tight break-words w-full">{nome}</p>
+              <Icon className="h-5 w-5 text-primary group-hover:text-white transition-colors" strokeWidth={1.5} />
+              <p className="text-xs font-semibold text-primary group-hover:text-white transition-colors text-center leading-tight">{nome}</p>
             </Link>
           ))}
         </div>
       </section>
 
       {/* MAIS VENDIDOS */}
-      <section className="container mx-auto px-4 py-10">
+      <section className="container mx-auto px-4 pb-14 max-w-6xl">
         <div className="flex items-end justify-between mb-8">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-bold">Top vendas</p>
-            <h2 className="font-display text-3xl md:text-4xl font-black mt-2 text-primary">Mais vendidos</h2>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground font-bold">Destaques</p>
+            <h2 className="font-display text-2xl md:text-3xl font-extrabold mt-1 text-primary">Mais vendidos</h2>
           </div>
-          <Button asChild variant="ghost" className="hidden sm:inline-flex text-primary">
+          <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex text-muted-foreground hover:text-primary gap-1">
             <Link to="/produtos">Ver catálogo <ArrowRight className="h-4 w-4" /></Link>
           </Button>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           {produtos.map((p) => <ProductCard key={p.id} p={p} />)}
+        </div>
+        <div className="mt-6 flex justify-center sm:hidden">
+          <Button asChild variant="outline" className="rounded-full gap-2">
+            <Link to="/produtos">Ver todos os produtos <ArrowRight className="h-4 w-4" /></Link>
+          </Button>
         </div>
       </section>
 
-      {/* OFERTAS BANNER */}
+      {/* BANNER OFERTAS — editorial, dois painéis */}
       {ofertas.length > 0 && (
-        <section className="container mx-auto px-4 py-16">
-          <div className="rounded-2xl bg-primary text-white p-6 md:p-12 grid md:grid-cols-2 gap-8 items-center overflow-hidden">
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] font-bold text-amber">Ofertas da semana</p>
-              <h2 className="font-display text-2xl sm:text-3xl md:text-5xl font-black mt-3 text-balance leading-tight">
-                Até 30% OFF em<br />dermocosméticos
-              </h2>
-              <p className="mt-4 text-white/75">Descontos exclusivos por tempo limitado.</p>
-              <Button asChild size="lg" className="mt-6 rounded-lg bg-amber text-primary hover:bg-amber/90 font-bold">
-                <Link to="/produtos">Aproveitar</Link>
+        <section className="container mx-auto px-4 pb-16 max-w-6xl">
+          <div className="rounded-3xl bg-primary overflow-hidden grid md:grid-cols-[1fr,1fr]">
+            {/* Texto */}
+            <div className="p-8 md:p-12 flex flex-col justify-between">
+              <div>
+                <span className="text-[11px] uppercase tracking-[0.2em] font-bold text-amber">Ofertas da semana</span>
+                <h2 className="font-display text-3xl md:text-5xl font-extrabold text-white mt-3 leading-[1.05]">
+                  Até<br /><span className="text-amber">30% OFF</span><br />em cosméticos
+                </h2>
+                <p className="mt-4 text-sm text-white/50 max-w-xs">
+                  Descontos exclusivos por tempo limitado em dermocosméticos selecionados.
+                </p>
+              </div>
+              <Button asChild size="lg" className="mt-8 w-fit rounded-full bg-amber text-primary hover:bg-amber/90 font-bold gap-2">
+                <Link to="/produtos">Aproveitar <ArrowRight className="h-4 w-4" /></Link>
               </Button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+
+            {/* Grid de produtos */}
+            <div className="grid grid-cols-2 gap-px bg-white/10 border-t md:border-t-0 md:border-l border-white/10">
               {ofertas.slice(0, 4).map((p) => (
-                <Link key={p.id} to="/produto/$id" params={{ id: p.id }}
-                  className="rounded-xl bg-white p-3 text-foreground hover:scale-[1.02] transition-transform">
-                  {p.imagem_url && <img src={p.imagem_url} alt={p.nome} className="aspect-square w-full object-cover rounded-lg bg-surface" />}
-                  <p className="text-xs font-semibold mt-2 line-clamp-1 text-primary">{p.nome}</p>
-                  <p className="text-primary font-black text-sm">-{p.desconto}%</p>
+                <Link
+                  key={p.id}
+                  to="/produto/$id"
+                  params={{ id: p.id }}
+                  className="bg-primary p-4 hover:bg-white/5 transition-colors flex flex-col gap-2"
+                >
+                  {p.imagem_url && (
+                    <div className="aspect-square rounded-xl overflow-hidden bg-white/10">
+                      <img src={p.imagem_url} alt={p.nome} className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs font-semibold text-white/80 line-clamp-1">{p.nome}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-amber font-bold text-sm">-{p.desconto}%</span>
+                      <span className="text-white/50 text-xs">{brl(p.preco * (1 - (p.desconto ?? 0) / 100))}</span>
+                    </div>
+                  </div>
                 </Link>
               ))}
             </div>
