@@ -21,8 +21,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:title", content: "Farma Pro — Sua farmácia online" },
       { name: "twitter:description", content: "Medicamentos, manipulação, vitaminas, suplementos e dermocosméticos com 10% OFF no PIX." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/867a0313-3601-497c-af8a-2f057e8e1872/id-preview-16f5935c--f9e459d2-f7bc-4541-a71e-a72c60a536f2.lovable.app-1780077197561.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/867a0313-3601-497c-af8a-2f057e8e1872/id-preview-16f5935c--f9e459d2-f7bc-4541-a71e-a72c60a536f2.lovable.app-1780077197561.png" },
+
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
