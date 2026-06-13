@@ -17,7 +17,7 @@ export async function sendEmail({
       "Authorization": `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      from: "Farma Pro <noreply@farmapro.com.br>",
+      from: "Farma Pro <onboarding@resend.dev>",
       to,
       subject,
       html,
