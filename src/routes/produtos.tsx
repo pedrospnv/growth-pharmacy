@@ -8,7 +8,8 @@ import { Footer } from "@/components/Footer";
 import { ProductCard, type Produto } from "@/components/ProductCard";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 
 const searchSchema = z.object({
   categoria: z.string().optional(),
@@ -28,13 +29,14 @@ function Produtos() {
   const navigate = Route.useNavigate();
   const [q, setQ] = useState(qParam ?? "");
   const [maxPreco, setMaxPreco] = useState<number>(300);
+  const [showFilters, setShowFilters] = useState(false);
 
   const { data: produtos = [], isLoading } = useQuery({
     queryKey: ["produtos"],
     queryFn: async () => {
       const { data } = await supabase
         .from("produtos")
-        .select("id,nome,preco,categoria,imagem_url,desconto")
+        .select("id,nome,preco,categoria,imagem_url,desconto,estoque")
         .order("nome");
       return (data ?? []) as Produto[];
     },
@@ -49,19 +51,35 @@ function Produtos() {
     });
   }, [produtos, categoria, q, maxPreco]);
 
+  const hasFilters = !!categoria || !!q || maxPreco < 300;
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <div className="container mx-auto px-4 py-10 md:py-14 flex-1">
-        <div className="mb-8">
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-bold">Catálogo</p>
-          <h1 className="font-display text-3xl md:text-5xl font-black mt-2 text-primary">
-            {categoria ?? "Todos os produtos"}
-          </h1>
-          <p className="text-muted-foreground mt-2 text-sm">{filtered.length} produtos encontrados</p>
+      <div className="container mx-auto px-4 py-8 md:py-12 flex-1">
+
+        {/* Título + botão de filtros mobile */}
+        <div className="flex items-end justify-between mb-6">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-bold">Catálogo</p>
+            <h1 className="font-display text-2xl md:text-4xl font-black mt-1 text-primary">
+              {categoria ?? "Todos os produtos"}
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm">{filtered.length} produtos</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="lg:hidden gap-2 rounded-full"
+            onClick={() => setShowFilters((s) => !s)}
+          >
+            {showFilters ? <X className="h-4 w-4" /> : <SlidersHorizontal className="h-4 w-4" />}
+            {showFilters ? "Fechar" : "Filtros"}
+            {hasFilters && <span className="h-2 w-2 rounded-full bg-primary" />}
+          </Button>
         </div>
 
-        {/* Pills filter */}
+        {/* Pills de categoria */}
         <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-6 scrollbar-none">
           <Link to="/produtos" search={{} as any}
             className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition ${!categoria ? "bg-primary text-white" : "border border-border bg-background text-foreground/80 hover:border-primary hover:text-primary"}`}>
@@ -75,36 +93,62 @@ function Produtos() {
           ))}
         </div>
 
-        <div className="grid lg:grid-cols-[260px,1fr] gap-8">
-          <aside className="space-y-5">
-            <div className="rounded-xl border border-border bg-card p-5">
-              <h3 className="font-display font-bold mb-3 text-primary text-sm">Buscar</h3>
+        <div className="grid lg:grid-cols-[240px,1fr] gap-6">
+
+          {/* Sidebar filtros — sempre visível no desktop, colapsável no mobile */}
+          <aside className={`space-y-4 ${showFilters ? "block" : "hidden lg:block"}`}>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <h3 className="font-semibold text-sm mb-3">Buscar</h3>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   value={q}
-                  onChange={(e) => { setQ(e.target.value); navigate({ search: (s: any) => ({ ...s, q: e.target.value || undefined }) }); }}
+                  onChange={(e) => {
+                    setQ(e.target.value);
+                    navigate({ search: (s: any) => ({ ...s, q: e.target.value || undefined }) });
+                  }}
                   placeholder="Nome do produto..."
                   className="pl-9 bg-surface"
                 />
               </div>
             </div>
-            <div className="rounded-xl border border-border bg-card p-5">
-              <h3 className="font-display font-bold mb-3 text-primary text-sm">Preço máximo</h3>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <h3 className="font-semibold text-sm mb-3">Preço máximo</h3>
               <Slider value={[maxPreco]} onValueChange={(v) => setMaxPreco(v[0])} min={10} max={300} step={10} />
               <p className="text-sm mt-3 font-bold text-primary">Até R$ {maxPreco}</p>
             </div>
+            {hasFilters && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full rounded-full text-muted-foreground"
+                onClick={() => {
+                  setQ("");
+                  setMaxPreco(300);
+                  navigate({ search: {} as any });
+                }}
+              >
+                <X className="h-3.5 w-3.5 mr-1" /> Limpar filtros
+              </Button>
+            )}
           </aside>
 
           <div>
             {isLoading ? (
-              <p className="text-muted-foreground">Carregando...</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                {[...Array(8)].map((_, i) => (
+                  <div key={i} className="rounded-xl border border-border bg-card aspect-[3/4] animate-pulse" />
+                ))}
+              </div>
             ) : filtered.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border p-12 text-center bg-surface">
-                <p className="text-muted-foreground">Nenhum produto encontrado.</p>
+                <p className="font-semibold text-muted-foreground">Nenhum produto encontrado.</p>
+                <Button variant="ghost" size="sm" className="mt-3" onClick={() => { setQ(""); setMaxPreco(300); navigate({ search: {} as any }); }}>
+                  Limpar filtros
+                </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
                 {filtered.map((p) => <ProductCard key={p.id} p={p} />)}
               </div>
             )}

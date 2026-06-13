@@ -146,7 +146,7 @@ function ContaPage() {
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-bold">Minha conta</p>
-            <h1 className="font-display text-4xl font-extrabold mt-1">
+            <h1 className="font-display text-3xl md:text-4xl font-extrabold mt-1">
               Ola{profile?.nome ? `, ${profile.nome.split(" ")[0]}` : ""}!
             </h1>
             <p className="text-muted-foreground mt-1 flex items-center gap-2">
@@ -171,8 +171,8 @@ function ContaPage() {
         </div>
 
         {aba === "informacoes" && (
-          <section className="rounded-2xl border border-border bg-card p-6 max-w-lg space-y-5">
-            <h2 className="font-display text-xl font-bold">Minhas informacoes</h2>
+          <section className="rounded-2xl border border-border bg-card p-5 md:p-6 max-w-lg space-y-4">
+            <h2 className="font-display text-xl font-bold">Minhas informações</h2>
             <div>
               <Label>Nome completo</Label>
               <Input value={info.nome} onChange={(e) => setInfo({ ...info, nome: e.target.value })} placeholder="Seu nome" />
@@ -198,8 +198,8 @@ function ContaPage() {
         )}
 
         {aba === "endereco" && (
-          <section className="rounded-2xl border border-border bg-card p-6 max-w-lg space-y-5">
-            <h2 className="font-display text-xl font-bold">Meu endereco</h2>
+          <section className="rounded-2xl border border-border bg-card p-5 md:p-6 max-w-lg space-y-4">
+            <h2 className="font-display text-xl font-bold">Meu endereço</h2>
             <p className="text-sm text-muted-foreground">Salvo aqui, sera preenchido automaticamente no checkout.</p>
             <div>
               <Label>CEP</Label>

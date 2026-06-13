@@ -50,7 +50,7 @@ function Admin() {
         <div className="mb-8">
           <p className="text-xs uppercase tracking-[0.2em] text-primary font-bold">Painel</p>
           <h1 className="font-display text-4xl font-extrabold mt-1">
-            Admin Farma Pro {isFuncionario && !isAdmin && <span className="text-sm font-normal text-muted-foreground">(funcionario)</span>}
+            Admin {isFuncionario && !isAdmin && <span className="text-sm font-normal text-muted-foreground">(funcionário)</span>}
           </h1>
         </div>
         <Tabs defaultValue="produtos">
@@ -301,13 +301,13 @@ function PedidosAdmin() {
 
       <Tabs defaultValue="aguardando">
         <TabsList className="flex-wrap h-auto">
-          <TabsTrigger value="aguardando">Aguardando pagamento ({aguardando.length})</TabsTrigger>
-          <TabsTrigger value="ativos">Ativos ({ativos.length})</TabsTrigger>
-          <TabsTrigger value="finalizados">Finalizados ({finalizados.length})</TabsTrigger>
-          <TabsTrigger value="devolucoes" className="relative">
+          <TabsTrigger value="aguardando" className="text-xs shrink-0">Aguardando ({aguardando.length})</TabsTrigger>
+          <TabsTrigger value="ativos" className="text-xs shrink-0">Ativos ({ativos.length})</TabsTrigger>
+          <TabsTrigger value="finalizados" className="text-xs shrink-0">Finalizados ({finalizados.length})</TabsTrigger>
+          <TabsTrigger value="devolucoes" className="relative text-xs shrink-0">
             Devoluções ({total_devolucoes})
             {devolucoes_andamento.length > 0 && (
-              <span className="ml-1.5 h-2 w-2 rounded-full bg-orange-500 inline-block" />
+              <span className="ml-1 h-2 w-2 rounded-full bg-orange-500 inline-block" />
             )}
           </TabsTrigger>
         </TabsList>

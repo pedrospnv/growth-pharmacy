@@ -50,8 +50,8 @@ function Login() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <div className="flex-1 grid place-items-center px-4 py-16">
-        <div className="w-full max-w-md rounded-3xl border border-border bg-card p-8 shadow-card">
+      <div className="flex-1 grid place-items-center px-4 py-10 md:py-16">
+        <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 md:p-8 shadow-card">
           <div className="text-center mb-6">
             <div className="inline-grid h-12 w-12 place-items-center rounded-2xl bg-primary text-primary-foreground mb-3">
               <Leaf className="h-6 w-6" />

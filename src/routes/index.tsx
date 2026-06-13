@@ -60,17 +60,17 @@ function Home() {
 
       {/* HERO */}
       <section className="bg-primary text-white">
-        <div className="container mx-auto px-4 py-20 md:py-28 max-w-5xl text-center">
+        <div className="container mx-auto px-4 py-12 md:py-24 max-w-5xl text-center">
           <span className="inline-block rounded-full bg-amber px-4 py-1.5 text-xs font-bold text-primary uppercase tracking-wider">
             10% OFF pagando no PIX
           </span>
-          <h1 className="mt-6 font-display text-4xl md:text-6xl lg:text-7xl font-black leading-[1.05] text-balance">
+          <h1 className="mt-4 font-display text-3xl md:text-6xl lg:text-7xl font-black leading-[1.05] text-balance">
             Sua farmácia,<br />agora <span className="text-amber">profissional</span>.
           </h1>
           <p className="mt-6 text-base md:text-lg text-white/75 max-w-2xl mx-auto">
             Medicamentos, manipulação, suplementos e dermocosméticos com entrega expressa e atendimento farmacêutico especializado.
           </p>
-          <div className="mt-10 flex gap-3 flex-wrap justify-center">
+          <div className="mt-8 flex gap-3 flex-wrap justify-center">
             <Button asChild size="lg" className="rounded-lg bg-amber text-primary hover:bg-amber/90 font-bold px-8 h-12">
               <Link to="/produtos">Comprar agora <ArrowRight className="h-4 w-4" /></Link>
             </Button>

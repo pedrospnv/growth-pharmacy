@@ -268,15 +268,15 @@ function Checkout() {
     <div className="min-h-screen flex flex-col">
       <Header />
       <div className="container mx-auto px-4 py-10 flex-1 max-w-5xl">
-        <h1 className="font-display text-4xl font-extrabold mb-2">Checkout</h1>
+        <h1 className="font-display text-2xl md:text-4xl font-extrabold mb-2">Checkout</h1>
 
         <div className="flex items-center gap-2 mt-6 mb-10">
-          {[{ n: 1, label: "Endereco" }, { n: 2, label: "Frete" }, { n: 3, label: "Pagamento" }].map((s, i) => (
+          {[{ n: 1, label: "Endereço" }, { n: 2, label: "Frete" }, { n: 3, label: "Pagamento" }].map((s, i) => (
             <div key={s.n} className="flex items-center gap-2 flex-1">
               <div className={`grid h-9 w-9 place-items-center rounded-full font-bold text-sm ${step >= s.n ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
                 {step > s.n ? <Check className="h-4 w-4" /> : s.n}
               </div>
-              <span className={`text-sm font-semibold ${step >= s.n ? "text-foreground" : "text-muted-foreground"}`}>{s.label}</span>
+              <span className={`text-xs md:text-sm font-semibold ${step >= s.n ? "text-foreground" : "text-muted-foreground"}`}>{s.label}</span>
               {i < 2 && <div className={`flex-1 h-0.5 ${step > s.n ? "bg-primary" : "bg-muted"}`} />}
             </div>
           ))}
@@ -455,7 +455,7 @@ function Checkout() {
             )}
           </div>
 
-          <aside className="rounded-2xl border border-border bg-card p-6 h-fit sticky top-32">
+          <aside className="rounded-2xl border border-border bg-card p-5 h-fit lg:sticky lg:top-32">
             <h3 className="font-display font-bold mb-4">Resumo</h3>
             <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
               {items.map((i) => (
