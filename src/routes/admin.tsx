@@ -187,7 +187,7 @@ function ProdutosAdmin() {
   );
 }
 
-const STATUS_PAGOS = ["pago", "em_preparacao", "a_caminho", "cancelado"] as const;
+const STATUS_PAGOS = ["pago", "em_preparacao", "a_caminho"] as const;
 const STATUS_LABELS: Record<string, string> = {
   pendente:             "Pendente",
   aguardando_pagamento: "Aguardando pagamento",
@@ -216,7 +216,7 @@ function PedidosAdmin() {
   });
 
   const PENDING = ["pendente", "aguardando_pagamento", "aguardando_pix", "aguardando_boleto"];
-  const DEVOLUCAO = ["devolucao_solicitada", "devolucao_a_caminho"];
+  const DEVOLUCAO = ["devolucao_solicitada", "devolucao_a_caminho", "devolucao_aprovada"];
   const aguardando = pedidos.filter((p: any) => PENDING.includes(p.status));
   const pagos = pedidos.filter((p: any) => !PENDING.includes(p.status) && !DEVOLUCAO.includes(p.status));
   const devolucoes = pedidos.filter((p: any) => DEVOLUCAO.includes(p.status));
@@ -305,7 +305,7 @@ function PedidosAdmin() {
 
         <TabsContent value="devolucoes" className="mt-4">
           {devolucoes.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma devolucao pendente.</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma devolução pendente.</p>
           ) : (
             <div className="flex flex-col gap-3">
               {devolucoes.map((p: any) => <DevolucaoCard key={p.id} pedido={p} />)}
@@ -510,7 +510,7 @@ function DevolucaoCard({ pedido }: { pedido: any }) {
             <Trash2 className="h-3.5 w-3.5" /> Rejeitar
           </Button>
           <DialogContent className="max-w-sm">
-            <DialogHeader><DialogTitle>Rejeitar devolucao?</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>Rejeitar devolução?</DialogTitle></DialogHeader>
             <p className="text-sm text-muted-foreground">O pedido voltara para o status "Entregue" e o cliente nao recebera o reembolso.</p>
             <div className="flex gap-2 mt-2">
               <Button variant="outline" className="flex-1 rounded-full" onClick={() => setOpenRejeitar(false)}>Cancelar</Button>
