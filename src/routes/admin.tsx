@@ -15,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { brl } from "@/lib/format";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Download, Package, ShoppingBag, Users, UserCog, Ban, Check, RotateCcw, Loader2, Calendar, CheckCircle2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Download, Package, ShoppingBag, Users, UserCog, Ban, Check, RotateCcw, Loader2, Calendar, CheckCircle2, ImageIcon } from "lucide-react";
 import {
   createFuncionario, updateFuncionario, deleteFuncionario,
   setAccountActive, listFuncionarios, listClientes,
@@ -80,6 +80,7 @@ function ProdutosAdmin() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Produto | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [uploadLoading, setUploadLoading] = useState(false);
 
   const { data: produtos = [] } = useQuery({
     queryKey: ["admin-produtos"],
@@ -94,6 +95,25 @@ function ProdutosAdmin() {
     setEditing(p);
     setForm({ ...p, descricao: p.descricao ?? "", imagem_url: p.imagem_url ?? "", desconto: p.desconto ?? 0 });
     setOpen(true);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadLoading(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from("produtos").upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from("produtos").getPublicUrl(path);
+      setForm((f) => ({ ...f, imagem_url: urlData.publicUrl }));
+      toast.success("Imagem enviada!");
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao enviar imagem");
+    } finally {
+      setUploadLoading(false);
+    }
   };
 
   const save = async () => {
@@ -112,7 +132,7 @@ function ProdutosAdmin() {
     if (!confirm("Excluir produto?")) return;
     const { error } = await supabase.from("produtos").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
-    toast.success("Excluido");
+    toast.success("Excluído");
     qc.invalidateQueries({ queryKey: ["admin-produtos"] });
   };
 
@@ -128,9 +148,9 @@ function ProdutosAdmin() {
             <DialogHeader><DialogTitle>{editing ? "Editar" : "Novo"} produto</DialogTitle></DialogHeader>
             <div className="space-y-3">
               <div><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
-              <div><Label>Descricao</Label><Textarea value={form.descricao ?? ""} onChange={(e) => setForm({ ...form, descricao: e.target.value })} /></div>
+              <div><Label>Descrição</Label><Textarea value={form.descricao ?? ""} onChange={(e) => setForm({ ...form, descricao: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>Preco (R$)</Label><Input type="number" step="0.01" value={form.preco} onChange={(e) => setForm({ ...form, preco: Number(e.target.value) })} /></div>
+                <div><Label>Preço (R$)</Label><Input type="number" step="0.01" value={form.preco} onChange={(e) => setForm({ ...form, preco: Number(e.target.value) })} /></div>
                 <div><Label>Estoque</Label><Input type="number" value={form.estoque} onChange={(e) => setForm({ ...form, estoque: Number(e.target.value) })} /></div>
                 <div><Label>Categoria</Label>
                   <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
@@ -139,8 +159,27 @@ function ProdutosAdmin() {
                 </div>
                 <div><Label>Desconto (%)</Label><Input type="number" value={form.desconto ?? 0} onChange={(e) => setForm({ ...form, desconto: Number(e.target.value) })} /></div>
               </div>
-              <div><Label>URL da imagem</Label><Input value={form.imagem_url ?? ""} onChange={(e) => setForm({ ...form, imagem_url: e.target.value })} /></div>
-              <Button onClick={save} className="w-full">{editing ? "Salvar" : "Criar"}</Button>
+
+              {/* Upload de imagem */}
+              <div className="space-y-2">
+                <Label>Imagem do produto</Label>
+                <div className="flex gap-2 items-center">
+                  <label className="flex-1 cursor-pointer">
+                    <div className="flex items-center justify-center gap-2 h-10 rounded-md border border-dashed border-input bg-background px-3 text-sm text-muted-foreground hover:border-primary hover:text-primary transition">
+                      {uploadLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</> : <><ImageIcon className="h-4 w-4" /> Tirar foto ou escolher arquivo</>}
+                    </div>
+                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageUpload} disabled={uploadLoading} />
+                  </label>
+                  {form.imagem_url && (
+                    <img src={form.imagem_url} alt="" className="h-10 w-10 rounded-lg object-cover border border-border shrink-0" />
+                  )}
+                </div>
+                {form.imagem_url && (
+                  <p className="text-xs text-muted-foreground truncate">{form.imagem_url}</p>
+                )}
+              </div>
+
+              <Button onClick={save} disabled={uploadLoading} className="w-full">{editing ? "Salvar" : "Criar"}</Button>
             </div>
           </DialogContent>
         </Dialog>
