@@ -187,22 +187,22 @@ function ProdutosAdmin() {
   );
 }
 
-const STATUS_PAGOS = ["pago", "em_preparacao", "a_caminho", "entregue", "cancelado", "devolucao_solicitada", "devolucao_a_caminho", "devolucao_aprovada"] as const;
+const STATUS_PAGOS = ["pago", "em_preparacao", "a_caminho", "cancelado"] as const;
 const STATUS_LABELS: Record<string, string> = {
-  pendente: "Pendente",
+  pendente:             "Pendente",
   aguardando_pagamento: "Aguardando pagamento",
-  aguardando_pix: "Aguardando PIX",
-  aguardando_boleto: "Aguardando boleto",
-  pago: "Pago",
-  processando: "Processando",
-  em_preparacao: "Em preparacao",
-  enviado: "Enviado",
-  a_caminho: "A caminho",
-  entregue: "Entregue",
-  cancelado: "Cancelado",
-  devolucao_solicitada: "Devolucao solicitada",
-  devolucao_a_caminho: "Devolucao a caminho",
-  devolucao_aprovada: "Devolucao aprovada",
+  aguardando_pix:       "Aguardando PIX",
+  aguardando_boleto:    "Aguardando boleto",
+  pago:                 "Pago",
+  processando:          "Processando",
+  em_preparacao:        "Em preparação",
+  enviado:              "Enviado",
+  a_caminho:            "A caminho",
+  entregue:             "Entregue",
+  cancelado:            "Cancelado",
+  devolucao_solicitada: "Devolução solicitada",
+  devolucao_a_caminho:  "Devolução a caminho",
+  devolucao_aprovada:   "Devolução aprovada",
 };
 
 function PedidosAdmin() {

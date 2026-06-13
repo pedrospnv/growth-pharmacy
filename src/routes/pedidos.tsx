@@ -16,14 +16,20 @@ export const Route = createFileRoute("/pedidos")({
 });
 
 const STATUS_VARIANT: Record<string, { label: string; cls: string }> = {
-  pendente: { label: "Pendente", cls: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/30" },
-  aguardando_pix: { label: "Aguardando PIX", cls: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/30" },
-  aguardando_boleto: { label: "Aguardando Boleto", cls: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/30" },
-  pago: { label: "Pago", cls: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30" },
-  em_preparacao: { label: "Em preparacao", cls: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30" },
-  a_caminho: { label: "A caminho", cls: "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30" },
-  entregue: { label: "Entregue", cls: "bg-green-500/15 text-green-700 border-green-500/30" },
-  cancelado: { label: "Cancelado", cls: "bg-destructive/15 text-destructive border-destructive/30" },
+  pendente:             { label: "Pendente",             cls: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/30" },
+  aguardando_pagamento: { label: "Aguardando pagamento", cls: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/30" },
+  aguardando_pix:       { label: "Aguardando PIX",       cls: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/30" },
+  aguardando_boleto:    { label: "Aguardando boleto",    cls: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/30" },
+  pago:                 { label: "Pago",                 cls: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30" },
+  processando:          { label: "Processando",          cls: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30" },
+  em_preparacao:        { label: "Em preparação",        cls: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30" },
+  enviado:              { label: "Enviado",              cls: "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30" },
+  a_caminho:            { label: "A caminho",            cls: "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30" },
+  entregue:             { label: "Entregue",             cls: "bg-green-500/15 text-green-700 border-green-500/30" },
+  cancelado:            { label: "Cancelado",            cls: "bg-destructive/15 text-destructive border-destructive/30" },
+  devolucao_solicitada: { label: "Devolução solicitada", cls: "bg-orange-500/15 text-orange-700 border-orange-500/30" },
+  devolucao_a_caminho:  { label: "Devolução a caminho",  cls: "bg-orange-500/15 text-orange-700 border-orange-500/30" },
+  devolucao_aprovada:   { label: "Devolução aprovada",   cls: "bg-green-500/15 text-green-700 border-green-500/30" },
 };
 
 function PedidosPage() {
