@@ -216,10 +216,16 @@ function PedidosAdmin() {
   });
 
   const PENDING = ["pendente", "aguardando_pagamento", "aguardando_pix", "aguardando_boleto"];
-  const DEVOLUCAO = ["devolucao_solicitada", "devolucao_a_caminho", "devolucao_aprovada"];
+  const ATIVOS = ["pago", "processando", "em_preparacao", "enviado", "a_caminho"];
+  const DEVOLUCAO_ANDAMENTO = ["devolucao_solicitada", "devolucao_a_caminho"];
+  const DEVOLUCAO_FINALIZADA = ["devolucao_aprovada"];
+
   const aguardando = pedidos.filter((p: any) => PENDING.includes(p.status));
-  const pagos = pedidos.filter((p: any) => !PENDING.includes(p.status) && !DEVOLUCAO.includes(p.status));
-  const devolucoes = pedidos.filter((p: any) => DEVOLUCAO.includes(p.status));
+  const ativos = pedidos.filter((p: any) => ATIVOS.includes(p.status));
+  const finalizados = pedidos.filter((p: any) => ["entregue", "cancelado", ...DEVOLUCAO_ANDAMENTO, ...DEVOLUCAO_FINALIZADA].includes(p.status));
+  const devolucoes_andamento = pedidos.filter((p: any) => DEVOLUCAO_ANDAMENTO.includes(p.status));
+  const devolucoes_finalizadas = pedidos.filter((p: any) => DEVOLUCAO_FINALIZADA.includes(p.status));
+  const total_devolucoes = devolucoes_andamento.length + devolucoes_finalizadas.length;
 
   const exportar = () => {
     const rows = pedidos.map((p: any) => ({
@@ -255,12 +261,13 @@ function PedidosAdmin() {
       </div>
 
       <Tabs defaultValue="aguardando">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="aguardando">Aguardando pagamento ({aguardando.length})</TabsTrigger>
-          <TabsTrigger value="pagos">Pagos ({pagos.length})</TabsTrigger>
+          <TabsTrigger value="ativos">Ativos ({ativos.length})</TabsTrigger>
+          <TabsTrigger value="finalizados">Finalizados ({finalizados.length})</TabsTrigger>
           <TabsTrigger value="devolucoes" className="relative">
-            Devolucoes ({devolucoes.length})
-            {devolucoes.length > 0 && (
+            Devoluções ({total_devolucoes})
+            {devolucoes_andamento.length > 0 && (
               <span className="ml-1.5 h-2 w-2 rounded-full bg-orange-500 inline-block" />
             )}
           </TabsTrigger>
@@ -293,26 +300,106 @@ function PedidosAdmin() {
           )}
         </TabsContent>
 
-        <TabsContent value="pagos" className="mt-4">
-          {pagos.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Nenhum pedido pago.</p>
+        <TabsContent value="ativos" className="mt-4">
+          {ativos.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">Nenhum pedido ativo.</p>
           ) : (
             <div className="flex flex-col gap-3">
-              {pagos.map((p: any) => <PedidoPagoCard key={p.id} pedido={p} />)}
+              {ativos.map((p: any) => <PedidoPagoCard key={p.id} pedido={p} />)}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="finalizados" className="mt-4">
+          {finalizados.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">Nenhum pedido finalizado.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {finalizados.map((p: any) => <PedidoFinalizadoCard key={p.id} pedido={p} />)}
             </div>
           )}
         </TabsContent>
 
         <TabsContent value="devolucoes" className="mt-4">
-          {devolucoes.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma devolução pendente.</p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {devolucoes.map((p: any) => <DevolucaoCard key={p.id} pedido={p} />)}
+          <div className="space-y-6">
+            <div>
+              <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-orange-500 inline-block" />
+                Em andamento ({devolucoes_andamento.length})
+              </h3>
+              {devolucoes_andamento.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma devolução em andamento.</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {devolucoes_andamento.map((p: any) => <DevolucaoCard key={p.id} pedido={p} />)}
+                </div>
+              )}
             </div>
-          )}
+            <div className="border-t border-border pt-6">
+              <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-green-500 inline-block" />
+                Finalizadas ({devolucoes_finalizadas.length})
+              </h3>
+              {devolucoes_finalizadas.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma devolução finalizada.</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {devolucoes_finalizadas.map((p: any) => <PedidoFinalizadoCard key={p.id} pedido={p} showDevolucao />)}
+                </div>
+              )}
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function PedidoFinalizadoCard({ pedido, showDevolucao }: { pedido: any; showDevolucao?: boolean }) {
+  const data = new Date(pedido.criado_em).toLocaleDateString("pt-BR");
+  const entregue = pedido.entregue_em ? new Date(pedido.entregue_em).toLocaleDateString("pt-BR") : null;
+  const itens = (pedido.itens as any[]) ?? [];
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+      <div className="flex justify-between items-start gap-3 flex-wrap">
+        <div>
+          <p className="font-semibold text-sm">{pedido.nome_cliente}</p>
+          <p className="text-xs text-muted-foreground">{pedido.email}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            #{pedido.id.slice(0, 8).toUpperCase()} · {pedido.cidade}/{pedido.estado}
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="text-base font-bold text-primary">{brl(Number(pedido.total))}</div>
+          <span className="text-xs bg-muted px-2 py-1 rounded-full capitalize">{pedido.forma_pagamento}</span>
+        </div>
+      </div>
+
+      <div className="text-xs text-muted-foreground border-t border-border pt-3 space-y-1">
+        <p className="line-clamp-1">{itens.map((i: any) => `${i.quantidade}x ${i.nome}`).join(" · ")}</p>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+          <span>📅 Pedido em {data}</span>
+          {entregue && <span>✅ Entregue em {entregue}</span>}
+          {pedido.codigo_rastreio && <span>📦 Rastreio: <span className="font-mono">{pedido.codigo_rastreio}</span></span>}
+        </div>
+      </div>
+
+      {showDevolucao && pedido.motivo_devolucao && (
+        <div className="rounded-lg bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900 p-3 text-xs">
+          <p className="font-semibold text-orange-700 dark:text-orange-400">Devolução aprovada</p>
+          <p className="text-orange-600 dark:text-orange-300 mt-0.5">Motivo: {pedido.motivo_devolucao}</p>
+          {pedido.devolucao_solicitada_em && (
+            <p className="text-orange-500 mt-0.5">Solicitado em {new Date(pedido.devolucao_solicitada_em).toLocaleDateString("pt-BR")}</p>
+          )}
+        </div>
+      )}
+
+      {pedido.status === "cancelado" && (
+        <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive font-semibold">
+          Pedido cancelado
+        </div>
+      )}
     </div>
   );
 }
