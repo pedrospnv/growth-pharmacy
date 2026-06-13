@@ -2,23 +2,42 @@ import { createFileRoute } from "@tanstack/react-router";
 
 const MP_BASE = "https://api.mercadopago.com";
 
-// Mapeia o status do Mercado Pago para o status interno do pedido
 function mapStatus(mpStatus: string): string | null {
   switch (mpStatus) {
-    case "approved":
-      return "pago";
+    case "approved": return "pago";
     case "in_process":
     case "pending":
-    case "authorized":
-      return null; // mantém status atual
+    case "authorized": return null;
     case "rejected":
     case "cancelled":
     case "refunded":
-    case "charged_back":
-      return "cancelado";
-    default:
-      return null;
+    case "charged_back": return "cancelado";
+    default: return null;
   }
+}
+
+async function verificarAssinatura(request: Request, secret: string): Promise<boolean> {
+  // MP envia x-signature: ts=....,v1=....
+  const xSignature = request.headers.get("x-signature");
+  const xRequestId = request.headers.get("x-request-id");
+  const url = new URL(request.url);
+  const dataId = url.searchParams.get("data.id");
+
+  if (!xSignature) return false;
+
+  const parts = Object.fromEntries(xSignature.split(",").map((p) => p.split("=")));
+  const ts = parts["ts"];
+  const v1 = parts["v1"];
+  if (!ts || !v1) return false;
+
+  const manifest = `id:${dataId ?? ""};request-id:${xRequestId ?? ""};ts:${ts};`;
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(manifest));
+  const computed = Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return computed === v1;
 }
 
 async function handleNotification(paymentId: string) {
@@ -28,7 +47,6 @@ async function handleNotification(paymentId: string) {
     return new Response("Config ausente", { status: 500 });
   }
 
-  // Consulta o pagamento na API do MP para confirmar o status real
   const res = await fetch(`${MP_BASE}/v1/payments/${paymentId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -41,8 +59,6 @@ async function handleNotification(paymentId: string) {
   if (!novoStatus) return new Response("ok", { status: 200 });
 
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-  // Atualiza o pedido vinculado a este pagamento
   const { error } = await supabaseAdmin
     .from("pedidos")
     .update({ status: novoStatus })
@@ -56,8 +72,18 @@ export const Route = createFileRoute("/api/public/mercadopago/webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const webhookSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+
+        // Valida assinatura se o secret estiver configurado
+        if (webhookSecret) {
+          const valido = await verificarAssinatura(request.clone(), webhookSecret);
+          if (!valido) {
+            console.warn("[mp-webhook] assinatura inválida");
+            return new Response("unauthorized", { status: 401 });
+          }
+        }
+
         const url = new URL(request.url);
-        // MP envia tanto na query (?type=payment&data.id=123) quanto no body
         let paymentId = url.searchParams.get("data.id") || url.searchParams.get("id");
         const type = url.searchParams.get("type") || url.searchParams.get("topic");
 

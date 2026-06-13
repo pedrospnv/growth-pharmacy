@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
+import { enviarEmailPedido } from "@/lib/email.server";
 import { brl, maskCep, maskCardNumber, maskCardExp, maskCpf, onlyDigits, calcFretePorCep } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -228,6 +229,19 @@ function Checkout() {
         cidade: endereco.cidade,
         estado: endereco.estado,
       }).eq("id", user.id);
+
+      // Envia email de confirmação em background (não bloqueia)
+      enviarEmailPedido({
+        data: {
+          to: user.email!,
+          nome: endereco.nome,
+          pedidoId: data.id,
+          itens: items.map((i) => ({ nome: i.nome, quantidade: i.quantidade, preco: i.preco })),
+          total,
+          endereco: `${endereco.rua}, ${endereco.numero} — ${endereco.cidade}/${endereco.estado}`,
+          formaPagamento: pgto,
+        },
+      }).catch(() => {}); // ignora falha de email
 
       if (pgto === "cartao") {
         clear();

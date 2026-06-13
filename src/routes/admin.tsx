@@ -553,10 +553,14 @@ function DevolucaoCard({ pedido }: { pedido: any }) {
         return;
       }
 
-      // Chama o endpoint de estorno no MP
+      // Chama o endpoint de estorno no MP com bearer token para verificação server-side
+      const { data: { session } } = await supabase.auth.getSession();
       const r = await fetch("/api/mercadopago/refund", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token ?? ""}`,
+        },
         body: JSON.stringify({ payment_id: pedido.mercadopago_payment_id }),
       });
       const data = await r.json();

@@ -68,23 +68,33 @@ function ProdutoDetalhe() {
               <p>{p.descricao}</p>
             </div>
 
-            <div className="mt-8 flex items-center gap-4">
-              <div className="flex items-center rounded-full border border-border">
-                <button onClick={() => setQtd(Math.max(1, qtd - 1))} className="grid place-items-center h-11 w-11 hover:bg-muted rounded-l-full"><Minus className="h-4 w-4" /></button>
-                <span className="w-10 text-center font-bold">{qtd}</span>
-                <button onClick={() => setQtd(qtd + 1)} className="grid place-items-center h-11 w-11 hover:bg-muted rounded-r-full"><Plus className="h-4 w-4" /></button>
+            {p.estoque <= 0 ? (
+              <div className="mt-8 rounded-xl border border-border bg-muted/50 p-4 text-center">
+                <p className="font-semibold text-muted-foreground">Produto indisponível</p>
+                <p className="text-sm text-muted-foreground mt-1">Este produto está fora de estoque no momento.</p>
               </div>
-              <Button
-                size="lg"
-                className="flex-1 rounded-full gap-2 h-12"
-                onClick={() => {
-                  add({ id: p.id, nome: p.nome, preco: finalPrice, imagem_url: p.imagem_url }, qtd);
-                  toast.success("Adicionado ao carrinho");
-                }}
-              >
-                <ShoppingCart className="h-5 w-5" /> Adicionar ao carrinho
-              </Button>
-            </div>
+            ) : (
+              <div className="mt-8 flex items-center gap-4">
+                <div className="flex items-center rounded-full border border-border">
+                  <button onClick={() => setQtd(Math.max(1, qtd - 1))} className="grid place-items-center h-11 w-11 hover:bg-muted rounded-l-full"><Minus className="h-4 w-4" /></button>
+                  <span className="w-10 text-center font-bold">{qtd}</span>
+                  <button onClick={() => setQtd(Math.min(p.estoque, qtd + 1))} className="grid place-items-center h-11 w-11 hover:bg-muted rounded-r-full"><Plus className="h-4 w-4" /></button>
+                </div>
+                <Button
+                  size="lg"
+                  className="flex-1 rounded-full gap-2 h-12"
+                  onClick={() => {
+                    add({ id: p.id, nome: p.nome, preco: finalPrice, imagem_url: p.imagem_url }, qtd);
+                    toast.success("Adicionado ao carrinho");
+                  }}
+                >
+                  <ShoppingCart className="h-5 w-5" /> Adicionar ao carrinho
+                </Button>
+              </div>
+            )}
+            {p.estoque > 0 && p.estoque <= 5 && (
+              <p className="mt-2 text-xs text-orange-600 font-semibold">Restam apenas {p.estoque} unidades</p>
+            )}
 
             <div className="mt-8 grid grid-cols-2 gap-3">
               <div className="flex items-center gap-3 rounded-xl border border-border p-3">
