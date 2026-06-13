@@ -57,48 +57,25 @@ function Home() {
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
 
-      {/* HERO — assimétrico, editorial */}
-      <section className="bg-primary overflow-hidden">
-        <div className="container mx-auto px-4 max-w-6xl">
-          <div className="grid md:grid-cols-[1fr,auto] gap-0 items-end">
-
-            {/* Texto */}
-            <div className="py-14 md:py-20 pr-0 md:pr-16">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 mb-6">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber" />
-                <span className="text-xs font-semibold text-white/90 tracking-wide">10% OFF pagando no PIX</span>
-              </div>
-              <h1 className="font-display text-4xl md:text-6xl lg:text-7xl font-extrabold leading-[1] text-white">
-                Saúde que<br />
-                <span className="text-amber">cabe no</span><br />
-                bolso.
-              </h1>
-              <p className="mt-5 text-sm md:text-base text-white/60 max-w-sm leading-relaxed">
-                Medicamentos, manipulação e dermocosméticos com entrega expressa. Sem filas, sem estresse.
-              </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Button asChild size="lg" className="rounded-full bg-amber text-primary hover:bg-amber/90 font-bold h-11 px-6 gap-2">
-                  <Link to="/produtos">Ver produtos <ArrowRight className="h-4 w-4" /></Link>
-                </Button>
-                <Button asChild variant="ghost" size="lg" className="rounded-full text-white/70 hover:text-white hover:bg-white/10 h-11 px-6">
-                  <Link to="/produtos" search={{ categoria: "Manipulação" } as any}>Manipulação</Link>
-                </Button>
-              </div>
-            </div>
-
-            {/* Stats laterais — visíveis só no desktop */}
-            <div className="hidden md:flex flex-col justify-end pb-20 gap-6 border-l border-white/10 pl-12">
-              {[
-                { n: "48h", label: "Entrega expressa" },
-                { n: "10%", label: "OFF no PIX" },
-                { n: "100%", label: "Seguro e certificado" },
-              ].map(({ n, label }) => (
-                <div key={n}>
-                  <p className="font-display text-3xl font-extrabold text-white leading-none">{n}</p>
-                  <p className="text-xs text-white/50 mt-1">{label}</p>
-                </div>
-              ))}
-            </div>
+      {/* HERO */}
+      <section className="bg-primary text-white">
+        <div className="container mx-auto px-4 py-14 md:py-24 max-w-5xl text-center">
+          <span className="inline-block rounded-full bg-amber px-4 py-1.5 text-xs font-bold text-primary uppercase tracking-wider">
+            10% OFF pagando no PIX
+          </span>
+          <h1 className="mt-5 font-display text-4xl md:text-6xl lg:text-7xl font-black leading-[1.05] text-balance">
+            Sua farmácia,<br />agora <span className="text-amber">online</span>.
+          </h1>
+          <p className="mt-5 text-base md:text-lg text-white/70 max-w-xl mx-auto leading-relaxed">
+            Medicamentos, manipulação e dermocosméticos com entrega expressa e 10% OFF no PIX.
+          </p>
+          <div className="mt-8 flex gap-3 flex-wrap justify-center">
+            <Button asChild size="lg" className="rounded-full bg-amber text-primary hover:bg-amber/90 font-bold px-8 h-12 gap-2">
+              <Link to="/produtos">Comprar agora <ArrowRight className="h-4 w-4" /></Link>
+            </Button>
+            <Button asChild size="lg" variant="outline" className="rounded-full border-white/25 bg-transparent text-white hover:bg-white/10 hover:text-white px-8 h-12">
+              <Link to="/produtos" search={{ categoria: "Manipulação" } as any}>Ver manipulação</Link>
+            </Button>
           </div>
         </div>
       </section>
