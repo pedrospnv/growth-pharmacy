@@ -21,14 +21,17 @@ export type Database = {
           codigo_rastreio: string | null
           criado_em: string
           desconto_pix: number
+          devolucao_solicitada_em: string | null
           email: string
           endereco: string
+          entregue_em: string | null
           estado: string
           forma_pagamento: string
           frete: number
           id: string
           itens: Json
           mercadopago_payment_id: string | null
+          motivo_devolucao: string | null
           nome_cliente: string
           status: string
           subtotal: number
@@ -41,14 +44,17 @@ export type Database = {
           codigo_rastreio?: string | null
           criado_em?: string
           desconto_pix?: number
+          devolucao_solicitada_em?: string | null
           email: string
           endereco: string
+          entregue_em?: string | null
           estado: string
           forma_pagamento: string
           frete?: number
           id?: string
           itens: Json
           mercadopago_payment_id?: string | null
+          motivo_devolucao?: string | null
           nome_cliente: string
           status?: string
           subtotal: number
@@ -61,14 +67,17 @@ export type Database = {
           codigo_rastreio?: string | null
           criado_em?: string
           desconto_pix?: number
+          devolucao_solicitada_em?: string | null
           email?: string
           endereco?: string
+          entregue_em?: string | null
           estado?: string
           forma_pagamento?: string
           frete?: number
           id?: string
           itens?: Json
           mercadopago_payment_id?: string | null
+          motivo_devolucao?: string | null
           nome_cliente?: string
           status?: string
           subtotal?: number
@@ -119,27 +128,51 @@ export type Database = {
       profiles: {
         Row: {
           ativo: boolean
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          complemento: string | null
           cpf: string | null
           created_at: string
           email: string | null
+          estado: string | null
           id: string
           nome: string | null
+          numero: string | null
+          rua: string | null
+          telefone: string | null
         }
         Insert: {
           ativo?: boolean
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
           cpf?: string | null
           created_at?: string
           email?: string | null
+          estado?: string | null
           id: string
           nome?: string | null
+          numero?: string | null
+          rua?: string | null
+          telefone?: string | null
         }
         Update: {
           ativo?: boolean
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
           cpf?: string | null
           created_at?: string
           email?: string | null
+          estado?: string | null
           id?: string
           nome?: string | null
+          numero?: string | null
+          rua?: string | null
+          telefone?: string | null
         }
         Relationships: []
       }

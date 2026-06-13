@@ -15,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { brl } from "@/lib/format";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Download, Package, ShoppingBag, Users, UserCog, Ban, Check, RotateCcw, Loader2, Calendar, CheckCircle2, ImageIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, Download, Package, ShoppingBag, Users, UserCog, Ban, Check, RotateCcw, Loader2, Calendar, CheckCircle2, ImageIcon, Tag } from "lucide-react";
 import {
   createFuncionario, updateFuncionario, deleteFuncionario,
   setAccountActive, listFuncionarios, listClientes,
@@ -56,11 +56,13 @@ function Admin() {
         <Tabs defaultValue="produtos">
           <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="produtos"><Package className="h-4 w-4 mr-2" />Produtos</TabsTrigger>
+            <TabsTrigger value="promocoes"><Tag className="h-4 w-4 mr-2" />Promoções</TabsTrigger>
             <TabsTrigger value="pedidos"><ShoppingBag className="h-4 w-4 mr-2" />Pedidos</TabsTrigger>
             {isAdmin && <TabsTrigger value="equipe"><UserCog className="h-4 w-4 mr-2" />Equipe</TabsTrigger>}
             {isAdmin && <TabsTrigger value="clientes"><Users className="h-4 w-4 mr-2" />Clientes</TabsTrigger>}
           </TabsList>
           <TabsContent value="produtos" className="mt-6"><ProdutosAdmin /></TabsContent>
+          <TabsContent value="promocoes" className="mt-6"><PromocoesAdmin /></TabsContent>
           <TabsContent value="pedidos" className="mt-6"><PedidosAdmin /></TabsContent>
           {isAdmin && <TabsContent value="equipe" className="mt-6"><EquipeAdmin /></TabsContent>}
           {isAdmin && <TabsContent value="clientes" className="mt-6"><ClientesAdmin /></TabsContent>}
@@ -243,6 +245,129 @@ const STATUS_LABELS: Record<string, string> = {
   devolucao_a_caminho:  "Devolução a caminho",
   devolucao_aprovada:   "Devolução aprovada",
 };
+
+function PromocoesAdmin() {
+  const qc = useQueryClient();
+  const [addOpen, setAddOpen] = useState(false);
+
+  const { data: produtos = [] } = useQuery({
+    queryKey: ["admin-produtos"],
+    queryFn: async () => {
+      const { data } = await supabase.from("produtos").select("*").order("nome");
+      return (data ?? []) as Produto[];
+    },
+  });
+
+  const emPromocao = produtos.filter((p) => (p.desconto ?? 0) > 0);
+  const semPromocao = produtos.filter((p) => (p.desconto ?? 0) <= 0);
+
+  const setDesconto = async (id: string, desconto: number) => {
+    const valor = Math.max(0, Math.min(90, desconto));
+    const { error } = await supabase.from("produtos").update({ desconto: valor }).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["admin-produtos"] });
+  };
+
+  const removerPromocao = async (id: string) => {
+    const { error } = await supabase.from("produtos").update({ desconto: 0 }).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Removido da promoção");
+    qc.invalidateQueries({ queryKey: ["admin-produtos"] });
+  };
+
+  const adicionarPromocao = async (id: string, desconto: number) => {
+    await setDesconto(id, desconto);
+    toast.success("Adicionado à promoção");
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <div>
+          <p className="text-sm font-semibold">Promoção da semana</p>
+          <p className="text-xs text-muted-foreground">{emPromocao.length} produtos com desconto ativo</p>
+        </div>
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <DialogTrigger asChild>
+            <Button className="rounded-full gap-2"><Plus className="h-4 w-4" /> Adicionar produto</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>Adicionar à promoção</DialogTitle></DialogHeader>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {semPromocao.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">Todos os produtos já estão em promoção.</p>
+              ) : (
+                semPromocao.map((p) => <AdicionarPromoRow key={p.id} produto={p} onAdd={(d) => { adicionarPromocao(p.id, d); }} />)
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {emPromocao.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+          <Tag className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+          <p className="font-semibold">Nenhum produto em promoção</p>
+          <p className="text-sm text-muted-foreground mt-1">Adicione produtos para começar a promoção da semana.</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {emPromocao.map((p) => {
+            const finalPrice = Number(p.preco) * (1 - (p.desconto ?? 0) / 100);
+            return (
+              <div key={p.id} className="rounded-2xl border border-border bg-card p-4 flex gap-4 items-center">
+                {p.imagem_url && <img src={p.imagem_url} alt="" className="h-16 w-16 rounded-xl object-cover shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm leading-tight line-clamp-1">{p.nome}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs line-through text-muted-foreground">{brl(Number(p.preco))}</span>
+                    <span className="text-sm font-bold text-primary">{brl(finalPrice)}</span>
+                    <span className="text-[10px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">-{p.desconto}%</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center rounded-lg border border-border">
+                    <button onClick={() => setDesconto(p.id, (p.desconto ?? 0) - 5)} className="grid h-9 w-9 place-items-center hover:bg-muted rounded-l-lg text-muted-foreground">
+                      <span className="text-lg leading-none">−</span>
+                    </button>
+                    <span className="w-12 text-center text-sm font-bold">{p.desconto}%</span>
+                    <button onClick={() => setDesconto(p.id, (p.desconto ?? 0) + 5)} className="grid h-9 w-9 place-items-center hover:bg-muted rounded-r-lg text-muted-foreground">
+                      <span className="text-lg leading-none">+</span>
+                    </button>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => removerPromocao(p.id)} className="h-9 w-9 p-0 text-destructive hover:bg-destructive/5">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdicionarPromoRow({ produto, onAdd }: { produto: Produto; onAdd: (desconto: number) => void }) {
+  const [desconto, setDesconto] = useState(10);
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border p-3">
+      {produto.imagem_url && <img src={produto.imagem_url} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0" />}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium line-clamp-1">{produto.nome}</p>
+        <p className="text-xs text-muted-foreground">{brl(Number(produto.preco))}</p>
+      </div>
+      <select
+        value={desconto}
+        onChange={(e) => setDesconto(Number(e.target.value))}
+        className="h-9 rounded-lg border border-input bg-background px-2 text-sm"
+      >
+        {[5, 10, 15, 20, 25, 30, 40, 50].map((d) => <option key={d} value={d}>{d}%</option>)}
+      </select>
+      <Button size="sm" onClick={() => onAdd(desconto)} className="rounded-full shrink-0">Adicionar</Button>
+    </div>
+  );
+}
 
 function PedidosAdmin() {
   const qc = useQueryClient();
