@@ -356,51 +356,112 @@ function PedidosAdmin() {
 }
 
 function PedidoFinalizadoCard({ pedido, showDevolucao }: { pedido: any; showDevolucao?: boolean }) {
-  const data = new Date(pedido.criado_em).toLocaleDateString("pt-BR");
-  const entregue = pedido.entregue_em ? new Date(pedido.entregue_em).toLocaleDateString("pt-BR") : null;
+  const [open, setOpen] = useState(false);
+  const fmt = (d: string) => new Date(d).toLocaleDateString("pt-BR");
   const itens = (pedido.itens as any[]) ?? [];
 
+  const timeline = [
+    { label: "Pedido realizado", data: pedido.criado_em, icon: ShoppingBag },
+    pedido.entregue_em ? { label: "Entregue", data: pedido.entregue_em, icon: CheckCircle2 } : null,
+    pedido.devolucao_solicitada_em ? { label: "Devolucao solicitada", data: pedido.devolucao_solicitada_em, icon: RotateCcw } : null,
+    pedido.status === "cancelado" ? { label: "Cancelado", data: pedido.criado_em, icon: Ban } : null,
+  ].filter(Boolean) as { label: string; data: string; icon: any }[];
+
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-      <div className="flex justify-between items-start gap-3 flex-wrap">
-        <div>
-          <p className="font-semibold text-sm">{pedido.nome_cliente}</p>
-          <p className="text-xs text-muted-foreground">{pedido.email}</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            #{pedido.id.slice(0, 8).toUpperCase()} · {pedido.cidade}/{pedido.estado}
-          </p>
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full text-left rounded-2xl border border-border bg-card p-4 space-y-3 hover:border-primary/40 transition"
+      >
+        <div className="flex justify-between items-start gap-3 flex-wrap">
+          <div>
+            <p className="font-semibold text-sm">{pedido.nome_cliente}</p>
+            <p className="text-xs text-muted-foreground">{pedido.email}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              #{pedido.id.slice(0, 8).toUpperCase()} · {pedido.cidade}/{pedido.estado}
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-base font-bold text-primary">{brl(Number(pedido.total))}</div>
+            <span className="text-xs bg-muted px-2 py-1 rounded-full capitalize">{pedido.forma_pagamento}</span>
+          </div>
         </div>
-        <div className="text-right">
-          <div className="text-base font-bold text-primary">{brl(Number(pedido.total))}</div>
-          <span className="text-xs bg-muted px-2 py-1 rounded-full capitalize">{pedido.forma_pagamento}</span>
-        </div>
-      </div>
 
-      <div className="text-xs text-muted-foreground border-t border-border pt-3 space-y-1">
-        <p className="line-clamp-1">{itens.map((i: any) => `${i.quantidade}x ${i.nome}`).join(" · ")}</p>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
-          <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> Pedido em {data}</span>
-          {entregue && <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-600" /> Entregue em {entregue}</span>}
-          {pedido.codigo_rastreio && <span className="flex items-center gap-1"><Package className="h-3 w-3" /> Rastreio: <span className="font-mono">{pedido.codigo_rastreio}</span></span>}
+        <div className="text-xs text-muted-foreground border-t border-border pt-3 space-y-1">
+          <p className="line-clamp-1">{itens.map((i: any) => `${i.quantidade}x ${i.nome}`).join(" · ")}</p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+            <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> Pedido em {fmt(pedido.criado_em)}</span>
+            {pedido.entregue_em && <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-600" /> Entregue em {fmt(pedido.entregue_em)}</span>}
+            {pedido.status === "cancelado" && <span className="flex items-center gap-1 text-destructive"><Ban className="h-3 w-3" /> Cancelado</span>}
+          </div>
         </div>
-      </div>
 
-      {showDevolucao && pedido.motivo_devolucao && (
-        <div className="rounded-lg bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900 p-3 text-xs">
-          <p className="font-semibold text-orange-700 dark:text-orange-400">Devolução aprovada</p>
-          <p className="text-orange-600 dark:text-orange-300 mt-0.5">Motivo: {pedido.motivo_devolucao}</p>
-          {pedido.devolucao_solicitada_em && (
-            <p className="text-orange-500 mt-0.5">Solicitado em {new Date(pedido.devolucao_solicitada_em).toLocaleDateString("pt-BR")}</p>
-          )}
-        </div>
-      )}
+        {showDevolucao && pedido.motivo_devolucao && (
+          <div className="rounded-lg bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900 p-3 text-xs">
+            <p className="font-semibold text-orange-700 dark:text-orange-400">Devolucao aprovada</p>
+            <p className="text-orange-600 dark:text-orange-300 mt-0.5">Motivo: {pedido.motivo_devolucao}</p>
+          </div>
+        )}
+      </button>
 
-      {pedido.status === "cancelado" && (
-        <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive font-semibold">
-          Pedido cancelado
-        </div>
-      )}
-    </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Pedido #{pedido.id.slice(0, 8).toUpperCase()}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-1">Cliente</p>
+              <p className="font-semibold">{pedido.nome_cliente}</p>
+              <p className="text-muted-foreground">{pedido.email}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-1">Entrega</p>
+              <p>{pedido.endereco}</p>
+              <p className="text-muted-foreground">{pedido.cidade}/{pedido.estado} · CEP {pedido.cep}</p>
+              {pedido.codigo_rastreio && (
+                <p className="mt-1 font-mono text-xs bg-muted px-2 py-1 rounded inline-block">{pedido.codigo_rastreio}</p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-1">Itens</p>
+              {itens.map((i: any) => (
+                <div key={i.id} className="flex justify-between py-0.5">
+                  <span>{i.quantidade}x {i.nome}</span>
+                  <span className="font-semibold">{brl(i.preco * i.quantidade)}</span>
+                </div>
+              ))}
+              <div className="border-t border-border mt-2 pt-2 flex justify-between font-bold">
+                <span>Total</span>
+                <span className="text-primary">{brl(Number(pedido.total))}</span>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-2">Historico</p>
+              <div className="space-y-2">
+                {timeline.map((t, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center shrink-0">
+                      <t.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 flex justify-between">
+                      <span>{t.label}</span>
+                      <span className="text-muted-foreground">{fmt(t.data)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {pedido.motivo_devolucao && (
+              <div className="rounded-lg bg-orange-50 dark:bg-orange-950/20 border border-orange-200 p-3">
+                <p className="font-semibold text-orange-700 dark:text-orange-400 text-xs">Motivo da devolucao</p>
+                <p className="text-orange-600 dark:text-orange-300 mt-0.5">{pedido.motivo_devolucao}</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
