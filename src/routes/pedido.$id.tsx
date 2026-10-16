@@ -352,9 +352,14 @@ function PagamentoPendente({ pedido: p, onUpdated }: { pedido: any; onUpdated: (
   const total = subtotal + frete - desconto;
 
   const callMP = async (payload: any) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error("Sua sessão expirou. Entre novamente para pagar.");
     const r = await fetch("/api/mercadopago/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + session.access_token,
+      },
       body: JSON.stringify(payload),
     });
     const json = await r.json();
