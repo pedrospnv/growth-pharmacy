@@ -5,6 +5,9 @@ import tsConfigPaths from "vite-tsconfig-paths";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { nitro } from "nitro/vite";
 
+const nitroPreset = process.env.NITRO_PRESET ?? "cloudflare_module";
+const isCloudflare = nitroPreset === "cloudflare_module";
+
 export default defineConfig({
   plugins: [
     tailwindcss(),
@@ -20,13 +23,17 @@ export default defineConfig({
       },
     }),
     nitro({
-      preset: "cloudflare-module",
-      output: {
-        dir: "dist",
-        serverDir: "dist/server",
-        publicDir: "dist/client",
-      },
-      cloudflare: { nodeCompat: true, deployConfig: true },
+      preset: nitroPreset,
+      ...(isCloudflare
+        ? {
+            output: {
+              dir: "dist",
+              serverDir: "dist/server",
+              publicDir: "dist/client",
+            },
+            cloudflare: { nodeCompat: true, deployConfig: true },
+          }
+        : {}),
     }),
     react(),
   ],
