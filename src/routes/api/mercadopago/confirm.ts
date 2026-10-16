@@ -25,7 +25,7 @@ export const Route = createFileRoute("/api/mercadopago/confirm")({
       }
 
       const { data: order, error } = await supabaseAdmin.from("pedidos")
-        .select("id,user_id,total,subtotal,frete,desconto_pix,email,mercadopago_payment_id,status")
+        .select("id,user_id,total,subtotal,frete,desconto_pix,cupom,desconto_cupom,email,mercadopago_payment_id,status")
         .eq("id", body.order_id).eq("user_id", authData.user.id).maybeSingle();
       if (error || !order) return Response.json({ error: "Pedido não encontrado" }, { status: 404 });
       if (!order.mercadopago_payment_id && !retryPaymentId) return Response.json({ error: "Pagamento ausente" }, { status: 409 });
@@ -50,8 +50,9 @@ export const Route = createFileRoute("/api/mercadopago/confirm")({
         }
         const subtotal = Number(order.subtotal);
         const frete = Number(order.frete);
+        const descontoCupom = Number(order.desconto_cupom ?? 0);
         const desconto = retryMethod === "pix" ? Math.round(subtotal * 10) / 100 : 0;
-        const expectedTotal = Math.round((subtotal + frete - desconto) * 100) / 100;
+        const expectedTotal = Math.round((subtotal + frete - descontoCupom - desconto) * 100) / 100;
         expectedOrder = { ...order, total: expectedTotal };
         if (retryMethod === "pix" && payment?.payment_method_id !== "pix") {
           return Response.json({ error: "O pagamento informado não é PIX" }, { status: 409 });
@@ -75,8 +76,9 @@ export const Route = createFileRoute("/api/mercadopago/confirm")({
         }
         const subtotal = Number(order.subtotal);
         const frete = Number(order.frete);
+        const descontoCupom = Number(order.desconto_cupom ?? 0);
         const desconto = retryMethod === "pix" ? Math.round(subtotal * 10) / 100 : 0;
-        const total = Math.round((subtotal + frete - desconto) * 100) / 100;
+        const total = Math.round((subtotal + frete - descontoCupom - desconto) * 100) / 100;
         const status = approved ? "pago" : retryMethod === "pix" ? "aguardando_pix" : "aguardando_boleto";
         const { error: updateError } = await supabaseAdmin.from("pedidos").update({
           forma_pagamento: retryMethod,
