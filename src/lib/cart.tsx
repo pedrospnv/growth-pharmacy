@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface CartItem {
   id: string;
@@ -23,19 +24,51 @@ const STORAGE = "farmapro_cart";
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [cartReady, setCartReady] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = typeof window !== "undefined" ? localStorage.getItem(STORAGE) : null;
-      if (raw) setItems(JSON.parse(raw));
-    } catch {}
+    let cancelled = false;
+    const loadCart = async () => {
+      try {
+        const raw = typeof window !== "undefined" ? localStorage.getItem(STORAGE) : null;
+        const saved = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(saved) || saved.length === 0) return;
+        const ids = saved.map((item: CartItem) => item?.id).filter((id: unknown): id is string => typeof id === "string");
+        if (!ids.length) return;
+        const { data, error } = await supabase.from("produtos")
+          .select("id,nome,preco,imagem_url,estoque").in("id", ids);
+        if (cancelled) return;
+        if (!error && data) {
+          const products = new Map(data.map((product) => [product.id, product]));
+          setItems(saved.flatMap((item: CartItem) => {
+            const product = products.get(item.id);
+            if (!product || product.estoque <= 0) return [];
+            return [{
+              id: product.id,
+              nome: product.nome,
+              preco: Number(product.preco),
+              imagem_url: product.imagem_url,
+              quantidade: Math.max(1, Math.min(Number(item.quantidade) || 1, product.estoque)),
+            }];
+          }));
+        } else {
+          setItems(saved);
+        }
+      } catch {
+        // Mantém o carrinho utilizável se a validação remota estiver indisponível.
+      } finally {
+        if (!cancelled) setCartReady(true);
+      }
+    };
+    void loadCart();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (cartReady && typeof window !== "undefined") {
       localStorage.setItem(STORAGE, JSON.stringify(items));
     }
-  }, [items]);
+  }, [items, cartReady]);
 
   const add: CartCtx["add"] = (item, qtd = 1) => {
     setItems((prev) => {
