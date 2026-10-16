@@ -10,6 +10,7 @@ type PayerInput = {
 };
 
 type CreateBody = {
+  order_id?: string;
   method: "pix" | "cartao" | "boleto";
   amount: number;
   description?: string;
@@ -110,6 +111,26 @@ export const Route = createFileRoute("/api/mercadopago/create")({
           return Response.json({ error: "Dados do pagador incompletos (nome, email, cpf)" }, { status: 400 });
         }
 
+        let chargeAmount = amount;
+        let externalReference: string | undefined;
+        if (body.order_id) {
+          const { data: order, error: orderError } = await supabaseAdmin.from("pedidos")
+            .select("id,user_id,subtotal,frete,email,status")
+            .eq("id", body.order_id).eq("user_id", authData.user.id).maybeSingle();
+          if (orderError || !order) return Response.json({ error: "Pedido não encontrado" }, { status: 404 });
+          if (!["pendente", "aguardando_pagamento", "aguardando_pix", "aguardando_boleto"].includes(order.status)) {
+            return Response.json({ error: "Este pedido não está aguardando pagamento" }, { status: 409 });
+          }
+          if (String(order.email ?? "").toLowerCase() !== String(authData.user.email ?? "").toLowerCase()) {
+            return Response.json({ error: "E-mail do pedido não corresponde à conta" }, { status: 403 });
+          }
+          const subtotal = Number(order.subtotal);
+          const frete = Number(order.frete);
+          const desconto = method === "pix" ? Math.round(subtotal * 10) / 100 : 0;
+          chargeAmount = Math.round((subtotal + frete - desconto) * 100) / 100;
+          externalReference = order.id;
+        }
+
         const { first_name, last_name } = splitName(payer.nome);
         const cpf = digits(payer.cpf);
         const idempotencyKey = crypto.randomUUID();
@@ -117,8 +138,9 @@ export const Route = createFileRoute("/api/mercadopago/create")({
         // --- PIX ---
         if (method === "pix") {
           const payload = {
-            transaction_amount: Number(amount.toFixed(2)),
+            transaction_amount: Number(chargeAmount.toFixed(2)),
             description,
+            ...(externalReference ? { external_reference: externalReference } : {}),
             payment_method_id: "pix",
             payer: {
               email: payer.email,
@@ -159,8 +181,9 @@ export const Route = createFileRoute("/api/mercadopago/create")({
           }
           const a = body.address;
           const payload = {
-            transaction_amount: Number(amount.toFixed(2)),
+            transaction_amount: Number(chargeAmount.toFixed(2)),
             description,
+            ...(externalReference ? { external_reference: externalReference } : {}),
             payment_method_id: "bolbradesco",
             payer: {
               email: payer.email,
@@ -201,9 +224,10 @@ export const Route = createFileRoute("/api/mercadopago/create")({
           if (!tok.ok) return Response.json({ error: tok.json?.message || "Falha ao tokenizar cartão", details: tok.json }, { status: tok.status });
           const paymentMethodId = await detectPaymentMethodId(token, bin);
           const payload = {
-            transaction_amount: Number(amount.toFixed(2)),
+            transaction_amount: Number(chargeAmount.toFixed(2)),
             token: tok.json.id,
             description,
+            ...(externalReference ? { external_reference: externalReference } : {}),
             installments: body.card.parcelas || 1,
             payment_method_id: paymentMethodId || undefined,
             payer: {
