@@ -82,7 +82,7 @@ export const Route = createFileRoute("/api/mercadopago/create")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const token = process.env.MERCADOPAGO_ACCESS_TOKEN;
+        const token = process.env.MERCADOPAGO_ACCESS_TOKEN?.trim();
         if (!token) {
           return Response.json({ error: "MERCADOPAGO_ACCESS_TOKEN não configurado" }, { status: 500 });
         }
