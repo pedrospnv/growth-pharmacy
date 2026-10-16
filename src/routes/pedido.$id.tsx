@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -339,12 +339,12 @@ function PagamentoPendente({ pedido: p, onUpdated }: { pedido: any; onUpdated: (
   const [cpf, setCpf] = useState("");
   const { user } = useAuth();
 
-  useState(() => {
+  useEffect(() => {
     if (!user) return;
     supabase.from("profiles").select("cpf").eq("id", user.id).maybeSingle().then(({ data }) => {
       if (data?.cpf) setCpf(maskCpf(data.cpf));
     });
-  });
+  }, [user?.id]);
 
   const subtotal = Number(p.subtotal);
   const frete = Number(p.frete);
@@ -367,6 +367,19 @@ function PagamentoPendente({ pedido: p, onUpdated }: { pedido: any; onUpdated: (
     return json;
   };
 
+  const confirmarTentativa = async (paymentId: string, method: Pgto) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error("Sua sessão expirou. Entre novamente para pagar.");
+    const r = await fetch("/api/mercadopago/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + session.access_token },
+      body: JSON.stringify({ order_id: p.id, payment_id: paymentId, method }),
+    });
+    const json = await r.json();
+    if (!r.ok) throw new Error(json?.error || "Não foi possível vincular o pagamento ao pedido");
+    return json;
+  };
+
   const pagar = async () => {
     if (onlyDigits(cpf).length !== 11) { toast.error("Informe um CPF válido para pagar"); return; }
     setLoading(true);
@@ -375,36 +388,25 @@ function PagamentoPendente({ pedido: p, onUpdated }: { pedido: any; onUpdated: (
       if (user) await supabase.from("profiles").update({ cpf: onlyDigits(cpf) }).eq("id", user.id);
 
       if (pgto === "pix") {
-        const r = await callMP({ method: "pix", amount: total, payer, description: `Pedido ${p.id.slice(0, 8)}` });
+        const r = await callMP({ order_id: p.id, method: "pix", amount: total, payer, description: `Pedido ${p.id.slice(0, 8)}` });
+        await confirmarTentativa(String(r.id), "pix");
         setPixData({ qr_code_base64: r.qr_code_base64, qr_code: r.qr_code });
-        await supabase.from("pedidos").update({
-          forma_pagamento: "pix", subtotal, frete, desconto_pix: desconto, total,
-          status: r.status === "approved" ? "pago" : "aguardando_pix",
-          mercadopago_payment_id: r.id ? String(r.id) : null,
-        }).eq("id", p.id);
         toast.success("PIX gerado! Escaneie o QR Code.");
       } else if (pgto === "boleto") {
         const r = await callMP({
-          method: "boleto", amount: total, payer,
+          order_id: p.id, method: "boleto", amount: total, payer,
           address: { cep: p.cep, rua: p.endereco, numero: "S/N", bairro: "-", cidade: p.cidade, estado: p.estado },
         });
+        await confirmarTentativa(String(r.id), "boleto");
         setBoletoData({ barcode: r.barcode, boleto_url: r.boleto_url });
-        await supabase.from("pedidos").update({
-          forma_pagamento: "boleto", subtotal, frete, desconto_pix: 0, total,
-          status: "aguardando_boleto",
-          mercadopago_payment_id: r.id ? String(r.id) : null,
-        }).eq("id", p.id);
         toast.success("Boleto gerado!");
       } else {
         const r = await callMP({
-          method: "cartao", amount: total, payer,
+          order_id: p.id, method: "cartao", amount: total, payer,
           card: { numero: cartao.numero, nome: cartao.nome, validade: cartao.validade, cvv: cartao.cvv, parcelas: cartao.parcelas },
         });
         if (r.status !== "approved") throw new Error(`Pagamento ${r.status}: ${r.status_detail || ""}`);
-        await supabase.from("pedidos").update({
-          forma_pagamento: "cartao", subtotal, frete, desconto_pix: 0, total, status: "pago",
-          mercadopago_payment_id: r.id ? String(r.id) : null,
-        }).eq("id", p.id);
+        await confirmarTentativa(String(r.id), "cartao");
         toast.success("Pagamento aprovado!");
         onUpdated();
       }
