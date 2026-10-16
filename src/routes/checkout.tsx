@@ -218,6 +218,19 @@ function Checkout() {
 
       if (error) throw error;
 
+      // Reconcile an immediately approved card payment on the server.
+      // PIX and boleto are finalized by the signed Mercado Pago webhook.
+      if (pgto === "cartao") {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          await fetch("/api/mercadopago/confirm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": "Bearer " + session.access_token },
+            body: JSON.stringify({ order_id: data.id }),
+          });
+        }
+      }
+
       // Atualiza perfil com CPF e endereco usados
       await supabase.from("profiles").update({
         cpf: onlyDigits(endereco.cpf),
