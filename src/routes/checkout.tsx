@@ -21,7 +21,7 @@ export const Route = createFileRoute("/checkout")({
 type Step = 1 | 2 | 3;
 type Pgto = "pix" | "cartao" | "boleto";
 
-const FRETE_GRATIS_TESTE = true;
+const FRETE_GRATIS_ACIMA = 199;
 const STATUS_PAGO = ["pago", "em_preparacao", "a_caminho", "entregue"];
 
 function Checkout() {
@@ -35,6 +35,9 @@ function Checkout() {
   });
   const [cepLoading, setCepLoading] = useState(false);
   const [frete, setFrete] = useState(0);
+  const [codigoCupom, setCodigoCupom] = useState("");
+  const [cupomAplicado, setCupomAplicado] = useState<{ codigo: string; desconto_percentual: number } | null>(null);
+  const [validandoCupom, setValidandoCupom] = useState(false);
   const [pgto, setPgto] = useState<Pgto>("pix");
   const [cartao, setCartao] = useState({ numero: "", nome: "", validade: "", cvv: "", parcelas: 1 });
   const [saving, setSaving] = useState(false);
@@ -79,57 +82,26 @@ function Checkout() {
           estado: e.estado || data.estado || "",
         }));
         if (data.cep && onlyDigits(data.cep).length === 8) {
-          setFrete(FRETE_GRATIS_TESTE ? 0 : calcFretePorCep(data.cep));
+          setFrete(subtotal >= FRETE_GRATIS_ACIMA ? 0 : calcFretePorCep(data.cep));
         }
       }
     })();
-  }, [user]);
+  }, [user, subtotal]);
 
-  // Polling: banco (via webhook) + fallback direto na API do MP a cada 15s
+  // A confirmação de PIX e boleto é atualizada pelo webhook assinado do Mercado Pago.
   useEffect(() => {
-    if ((!pedidoId && !mpPaymentId) || pagamentoAprovado) return;
-
+    if (!pedidoId || pagamentoAprovado) return;
     const confirmar = () => {
-      setPagamentoAprovado(true);
       if (pollingRef.current) clearInterval(pollingRef.current);
+      setPagamentoAprovado(true);
       toast.success("Pagamento aprovado!");
     };
-
-    let tick = 0;
-
     pollingRef.current = setInterval(async () => {
-      tick++;
-
-      if (pedidoId) {
-        const { data } = await supabase
-          .from("pedidos")
-          .select("status")
-          .eq("id", pedidoId)
-          .maybeSingle();
-        if (data && STATUS_PAGO.includes(data.status)) {
-          confirmar();
-          return;
-        }
-      }
-
-      if (mpPaymentId && tick % 3 === 0) {
-        try {
-          const r = await fetch(`/api/mercadopago/status?payment_id=${mpPaymentId}`);
-          if (r.ok) {
-            const json = await r.json();
-            if (json?.status === "approved") {
-              if (pedidoId) {
-                await supabase.from("pedidos").update({ status: "pago" }).eq("id", pedidoId);
-              }
-              confirmar();
-            }
-          }
-        } catch { /* ignora */ }
-      }
+      const { data } = await supabase.from("pedidos").select("status").eq("id", pedidoId).maybeSingle();
+      if (data && STATUS_PAGO.includes(data.status)) confirmar();
     }, 5000);
-
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
-  }, [pedidoId, mpPaymentId, pagamentoAprovado]);
+  }, [pedidoId, pagamentoAprovado]);
 
   const buscarCep = async (cep: string) => {
     const d = onlyDigits(cep);
@@ -146,14 +118,37 @@ function Checkout() {
           cidade: data.localidade || e.cidade,
           estado: data.uf || e.estado,
         }));
-        setFrete(FRETE_GRATIS_TESTE ? 0 : calcFretePorCep(d));
+        setFrete(subtotal >= FRETE_GRATIS_ACIMA ? 0 : calcFretePorCep(d));
       } else toast.error("CEP nao encontrado");
     } catch { toast.error("Falha ao buscar CEP"); }
     setCepLoading(false);
   };
 
-  const desconto = pgto === "pix" ? subtotal * 0.1 : 0;
-  const total = subtotal + frete - desconto;
+  const desconto = pgto === "pix" ? Math.round(subtotal * 10) / 100 : 0;
+  const descontoCupom = cupomAplicado ? Math.round(subtotal * cupomAplicado.desconto_percentual) / 100 : 0;
+  const total = Math.max(0, Math.round((subtotal + frete - desconto - descontoCupom) * 100) / 100);
+
+  const aplicarCupom = async () => {
+    const codigo = codigoCupom.trim().toLowerCase();
+    if (!codigo) { toast.error("Digite um cupom"); return; }
+    setValidandoCupom(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + (session?.access_token ?? "") },
+        body: JSON.stringify({ codigo }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "Cupom inválido ou inativo");
+      setCupomAplicado(data);
+      setCodigoCupom(data.codigo);
+    } catch (error: any) {
+      toast.error(error.message || "Cupom inválido ou inativo");
+    } finally { setValidandoCupom(false); }
+    return;
+    toast.success("Cupom aplicado");
+  };
 
   const callMP = async (payload: any) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -163,7 +158,7 @@ function Checkout() {
         "Content-Type": "application/json",
         "Authorization": "Bearer " + (session?.access_token ?? ""),
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, subtotal, cep: endereco.cep, cupom: cupomAplicado?.codigo ?? null }),
     });
     const json = await r.json();
     if (!r.ok) throw new Error(json?.error || "Falha no pagamento");
@@ -214,7 +209,7 @@ function Checkout() {
         cidade: endereco.cidade,
         estado: endereco.estado,
         itens: items as any,
-        subtotal, frete, desconto_pix: desconto, total,
+        subtotal, frete, desconto_pix: desconto, cupom: cupomAplicado?.codigo ?? null, desconto_cupom: descontoCupom, total,
         forma_pagamento: pgto,
         status: mpStatus,
         mercadopago_payment_id: mpResult?.id ? String(mpResult.id) : null,
@@ -333,7 +328,7 @@ function Checkout() {
                 <Button
                   size="lg" className="w-full rounded-full"
                   disabled={!endereco.nome || !endereco.cpf || !endereco.cep || !endereco.rua || !endereco.numero || !endereco.cidade || !endereco.estado}
-                  onClick={() => { if (FRETE_GRATIS_TESTE) setFrete(0); else if (!frete) setFrete(calcFretePorCep(endereco.cep)); setStep(2); }}
+                  onClick={() => { setFrete(subtotal >= FRETE_GRATIS_ACIMA ? 0 : calcFretePorCep(endereco.cep)); setStep(2); }}
                 >Continuar para frete</Button>
               </>
             )}
@@ -359,6 +354,18 @@ function Checkout() {
             {step === 3 && (
               <>
                 <h2 className="font-display text-xl font-bold">Forma de pagamento</h2>
+                <div className="rounded-xl border border-border p-4 space-y-2">
+                  <Label htmlFor="codigo-cupom">Cupom de desconto</Label>
+                  <div className="flex gap-2">
+                    <Input id="codigo-cupom" value={codigoCupom} disabled={!!cupomAplicado || validandoCupom} onChange={(e) => setCodigoCupom(e.target.value)} placeholder="Digite OFF10" />
+                    {cupomAplicado ? (
+                      <Button type="button" variant="outline" onClick={() => { setCupomAplicado(null); setCodigoCupom(""); }}>Remover</Button>
+                    ) : (
+                      <Button type="button" variant="outline" disabled={validandoCupom} onClick={aplicarCupom}>{validandoCupom ? "Validando..." : "Aplicar"}</Button>
+                    )}
+                  </div>
+                  {cupomAplicado && <p className="text-sm text-green-600">OFF10 aplicado: {cupomAplicado.desconto_percentual}% de desconto</p>}
+                </div>
                 <div className="grid grid-cols-3 gap-3">
                   {([
                     { v: "pix", icon: QrCode, label: "PIX", sub: "10% OFF" },
@@ -484,8 +491,9 @@ function Checkout() {
             </div>
             <div className="border-t border-border pt-3 space-y-1.5 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{brl(subtotal)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Frete</span><span>{frete ? brl(frete) : "—"}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Frete</span><span>{endereco.cep ? (frete === 0 ? "Grátis" : brl(frete)) : "—"}</span></div>
               {desconto > 0 && <div className="flex justify-between text-green-600"><span>Desconto PIX</span><span>-{brl(desconto)}</span></div>}
+              {descontoCupom > 0 && <div className="flex justify-between text-green-600"><span>Cupom {cupomAplicado?.codigo.toUpperCase()}</span><span>-{brl(descontoCupom)}</span></div>}
             </div>
             <div className="border-t border-border mt-3 pt-3 flex justify-between">
               <span className="font-bold">Total</span>
