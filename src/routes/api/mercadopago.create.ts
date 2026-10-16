@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { calcFretePorCep, onlyDigits } from "@/lib/format";
 
 const MP_BASE = "https://api.mercadopago.com";
 
@@ -12,7 +13,10 @@ type PayerInput = {
 type CreateBody = {
   order_id?: string;
   method: "pix" | "cartao" | "boleto";
-  amount: number;
+  amount?: number;
+  subtotal?: number;
+  cep?: string;
+  cupom?: string | null;
   description?: string;
   payer: PayerInput;
   address?: {
@@ -104,18 +108,18 @@ export const Route = createFileRoute("/api/mercadopago/create")({
         if (String(payer?.email ?? "").toLowerCase() !== String(authData.user.email ?? "").toLowerCase()) {
           return Response.json({ error: "E-mail do pagamento deve corresponder à conta" }, { status: 403 });
         }
-        if (!method || !amount || amount <= 0) {
-          return Response.json({ error: "Parâmetros inválidos" }, { status: 400 });
+        if (!["pix", "cartao", "boleto"].includes(method)) {
+          return Response.json({ error: "Forma de pagamento inválida" }, { status: 400 });
         }
         if (!payer?.email || !payer?.nome || !digits(payer?.cpf || "")) {
           return Response.json({ error: "Dados do pagador incompletos (nome, email, cpf)" }, { status: 400 });
         }
 
-        let chargeAmount = amount;
+        let chargeAmount: number;
         let externalReference: string | undefined;
         if (body.order_id) {
           const { data: order, error: orderError } = await supabaseAdmin.from("pedidos")
-            .select("id,user_id,subtotal,frete,email,status")
+            .select("id,user_id,subtotal,frete,desconto_cupom,email,status")
             .eq("id", body.order_id).eq("user_id", authData.user.id).maybeSingle();
           if (orderError || !order) return Response.json({ error: "Pedido não encontrado" }, { status: 404 });
           if (!["pendente", "aguardando_pagamento", "aguardando_pix", "aguardando_boleto"].includes(order.status)) {
@@ -126,9 +130,30 @@ export const Route = createFileRoute("/api/mercadopago/create")({
           }
           const subtotal = Number(order.subtotal);
           const frete = Number(order.frete);
-          const desconto = method === "pix" ? Math.round(subtotal * 10) / 100 : 0;
-          chargeAmount = Math.round((subtotal + frete - desconto) * 100) / 100;
+          const descontoCupom = Number(order.desconto_cupom ?? 0);
+          const descontoPix = method === "pix" ? Math.round(subtotal * 10) / 100 : 0;
+          chargeAmount = Math.round((subtotal + frete - descontoCupom - descontoPix) * 100) / 100;
           externalReference = order.id;
+        } else {
+          const subtotal = Number(body.subtotal);
+          const cep = onlyDigits(body.cep ?? "");
+          if (!Number.isFinite(subtotal) || subtotal <= 0 || cep.length !== 8) {
+            return Response.json({ error: "Subtotal ou CEP inválido" }, { status: 400 });
+          }
+          const frete = subtotal >= 199 ? 0 : calcFretePorCep(cep);
+          let descontoCupom = 0;
+          const codigoCupom = String(body.cupom ?? "").trim().toLowerCase();
+          if (codigoCupom) {
+            const { data: coupon } = await supabaseAdmin.from("cupons")
+              .select("desconto_percentual").eq("codigo", codigoCupom).eq("ativo", true).maybeSingle();
+            if (!coupon) return Response.json({ error: "Cupom inválido ou inativo" }, { status: 400 });
+            descontoCupom = Math.round(subtotal * Number(coupon.desconto_percentual)) / 100;
+          }
+          const descontoPix = method === "pix" ? Math.round(subtotal * 10) / 100 : 0;
+          chargeAmount = Math.round((subtotal + frete - descontoCupom - descontoPix) * 100) / 100;
+        }
+        if (!Number.isFinite(chargeAmount) || chargeAmount <= 0) {
+          return Response.json({ error: "Valor total inválido" }, { status: 400 });
         }
 
         const { first_name, last_name } = splitName(payer.nome);
