@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { paymentMatchesOrder } from "@/lib/payment-validation";
 
 export const Route = createFileRoute("/api/mercadopago/confirm")({
   server: { handlers: {
@@ -22,9 +23,7 @@ export const Route = createFileRoute("/api/mercadopago/confirm")({
         { headers: { Authorization: "Bearer " + token } });
       if (!response.ok) return Response.json({ error: "Não foi possível verificar o pagamento" }, { status: 502 });
       const payment = await response.json();
-      const amountMatches = Math.round(Number(payment?.transaction_amount) * 100) === Math.round(Number(order.total) * 100);
-      const payerMatches = String(payment?.payer?.email ?? "").toLowerCase() === String(order.email).toLowerCase();
-      if (payment?.status !== "approved" || !amountMatches || !payerMatches)
+      if (payment?.status !== "approved" || !paymentMatchesOrder(payment, order))
         return Response.json({ error: "Pagamento ainda não aprovado para este pedido" }, { status: 409 });
       const { error: updateError } = await supabaseAdmin.from("pedidos").update({ status: "pago" })
         .eq("id", order.id).eq("user_id", authData.user.id).eq("mercadopago_payment_id", order.mercadopago_payment_id);

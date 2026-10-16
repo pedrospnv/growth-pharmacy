@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const MP_BASE = "https://api.mercadopago.com";
 
@@ -93,7 +94,15 @@ export const Route = createFileRoute("/api/mercadopago/create")({
           return Response.json({ error: "JSON inválido" }, { status: 400 });
         }
 
+        const authHeader = request.headers.get("authorization") ?? "";
+        if (!authHeader.startsWith("Bearer ")) return Response.json({ error: "Não autorizado" }, { status: 401 });
+        const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(authHeader.slice(7).trim());
+        if (authError || !authData.user) return Response.json({ error: "Sessão inválida" }, { status: 401 });
+
         const { method, amount, payer, description = "Pedido Farma Pro" } = body;
+        if (String(payer?.email ?? "").toLowerCase() !== String(authData.user.email ?? "").toLowerCase()) {
+          return Response.json({ error: "E-mail do pagamento deve corresponder à conta" }, { status: 403 });
+        }
         if (!method || !amount || amount <= 0) {
           return Response.json({ error: "Parâmetros inválidos" }, { status: 400 });
         }

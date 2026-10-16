@@ -11,6 +11,7 @@ DECLARE
 BEGIN
   IF auth.uid() IS NULL OR public.is_staff(auth.uid()) THEN RETURN NEW; END IF;
   IF NEW.user_id IS DISTINCT FROM auth.uid() THEN RAISE EXCEPTION 'Pedido deve pertencer ao usuário autenticado'; END IF;
+  SELECT email INTO NEW.email FROM auth.users WHERE id = auth.uid();
   IF NEW.forma_pagamento NOT IN ('pix', 'cartao', 'boleto') THEN RAISE EXCEPTION 'Forma de pagamento inválida'; END IF;
   IF jsonb_typeof(NEW.itens) <> 'array' OR jsonb_array_length(NEW.itens) = 0 THEN RAISE EXCEPTION 'O pedido precisa ter itens'; END IF;
 

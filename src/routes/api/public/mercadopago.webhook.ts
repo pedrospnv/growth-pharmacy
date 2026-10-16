@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { paymentMatchesOrder } from "@/lib/payment-validation";
 
 const MP_BASE = "https://api.mercadopago.com";
 
@@ -42,10 +43,7 @@ async function handleNotification(paymentId: string) {
     .select("id,total,email").eq("mercadopago_payment_id", paymentId).maybeSingle();
   if (lookupError) return new Response("order lookup failed", { status: 500 });
   if (!order) return new Response("ok", { status: 200 });
-  const paidCents = Math.round(Number(payment?.transaction_amount) * 100);
-  const orderCents = Math.round(Number(order.total) * 100);
-  const payerEmail = String(payment?.payer?.email ?? "").toLowerCase();
-  if (paidCents !== orderCents || payerEmail !== String(order.email).toLowerCase()) {
+  if (!paymentMatchesOrder(payment, order)) {
     console.warn("[mp-webhook] pagamento não corresponde ao pedido", paymentId);
     return new Response("ok", { status: 200 });
   }
