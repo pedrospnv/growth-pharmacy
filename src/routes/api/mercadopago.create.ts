@@ -131,7 +131,15 @@ export const Route = createFileRoute("/api/mercadopago/create")({
             body: JSON.stringify(payload),
             idempotencyKey,
           });
-          if (!r.ok) return Response.json({ error: r.json?.message || "Falha ao criar PIX", details: r.json }, { status: r.status });
+          if (!r.ok) {
+            console.error("[mp-create] PIX rejected", {
+              status: r.status,
+              tokenType: token.startsWith("TEST-") ? "test" : token.startsWith("APP_USR-") ? "app_usr" : "other",
+              message: r.json?.message,
+              causeCodes: Array.isArray(r.json?.cause) ? r.json.cause.map((item: any) => item.code) : [],
+            });
+            return Response.json({ error: r.json?.message || "Falha ao criar PIX", details: r.json }, { status: r.status });
+          }
           const td = r.json?.point_of_interaction?.transaction_data;
           return Response.json({
             id: r.json?.id,
