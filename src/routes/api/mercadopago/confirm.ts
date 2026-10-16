@@ -17,6 +17,9 @@ export const Route = createFileRoute("/api/mercadopago/confirm")({
       if (typeof body?.order_id !== "string") return Response.json({ error: "Pedido inválido" }, { status: 400 });
       const retryMethod = body?.method;
       const retryPaymentId = typeof body?.payment_id === "string" ? body.payment_id : null;
+      if (retryPaymentId && !/^\\d+$/.test(retryPaymentId)) {
+        return Response.json({ error: "Pagamento inválido" }, { status: 400 });
+      }
       if (retryPaymentId && !["pix", "cartao", "boleto"].includes(retryMethod)) {
         return Response.json({ error: "Forma de pagamento inválida" }, { status: 400 });
       }
@@ -33,6 +36,7 @@ export const Route = createFileRoute("/api/mercadopago/confirm")({
       const token = process.env.MERCADOPAGO_ACCESS_TOKEN?.trim();
       if (!token) return Response.json({ error: "Pagamento indisponível" }, { status: 503 });
       const paymentId = retryPaymentId ?? order.mercadopago_payment_id;
+      if (!paymentId) return Response.json({ error: "Pagamento ausente" }, { status: 409 });
       const response = await fetch(MP_BASE + "/v1/payments/" + encodeURIComponent(paymentId), {
         headers: { Authorization: "Bearer " + token },
       });
