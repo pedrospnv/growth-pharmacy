@@ -1,0 +1,1002 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import * as XLSX from "xlsx";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { brl } from "@/lib/format";
+import { toast } from "sonner";
+import { Plus, Pencil, Trash2, Download, Package, ShoppingBag, Users, UserCog, Ban, Check, RotateCcw, Loader2, Calendar, CheckCircle2, ImageIcon, Tag } from "lucide-react";
+import {
+  createFuncionario, updateFuncionario, deleteFuncionario,
+  setAccountActive, listFuncionarios, listClientes,
+} from "@/lib/staff.functions";
+
+export const Route = createFileRoute("/admin")({
+  head: () => ({ meta: [{ title: "Admin — Farma Pro" }] }),
+  component: Admin,
+});
+
+type Produto = {
+  id: string; nome: string; descricao: string | null; preco: number;
+  categoria: string; imagem_url: string | null; estoque: number; desconto: number | null;
+};
+
+function Admin() {
+  const { user, isAdmin, isFuncionario, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) navigate({ to: "/login" });
+    else if (!isAdmin && !isFuncionario) { toast.error("Acesso restrito"); navigate({ to: "/" }); }
+  }, [user, isAdmin, isFuncionario, loading, navigate]);
+
+  if (loading || (!isAdmin && !isFuncionario)) return <div className="min-h-screen grid place-items-center">Verificando acesso...</div>;
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <div className="container mx-auto px-4 py-10 flex-1">
+        <div className="mb-8">
+          <p className="text-xs uppercase tracking-[0.2em] text-primary font-bold">Painel</p>
+          <h1 className="font-display text-4xl font-extrabold mt-1">
+            Admin {isFuncionario && !isAdmin && <span className="text-sm font-normal text-muted-foreground">(funcionário)</span>}
+          </h1>
+        </div>
+        <Tabs defaultValue="produtos">
+          <TabsList className="flex-wrap h-auto">
+            <TabsTrigger value="produtos"><Package className="h-4 w-4 mr-2" />Produtos</TabsTrigger>
+            <TabsTrigger value="promocoes"><Tag className="h-4 w-4 mr-2" />Promoções</TabsTrigger>
+            <TabsTrigger value="pedidos"><ShoppingBag className="h-4 w-4 mr-2" />Pedidos</TabsTrigger>
+            {isAdmin && <TabsTrigger value="equipe"><UserCog className="h-4 w-4 mr-2" />Equipe</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="clientes"><Users className="h-4 w-4 mr-2" />Clientes</TabsTrigger>}
+          </TabsList>
+          <TabsContent value="produtos" className="mt-6"><ProdutosAdmin /></TabsContent>
+          <TabsContent value="promocoes" className="mt-6"><PromocoesAdmin /></TabsContent>
+          <TabsContent value="pedidos" className="mt-6"><PedidosAdmin /></TabsContent>
+          {isAdmin && <TabsContent value="equipe" className="mt-6"><EquipeAdmin /></TabsContent>}
+          {isAdmin && <TabsContent value="clientes" className="mt-6"><ClientesAdmin /></TabsContent>}
+        </Tabs>
+      </div>
+      <Footer />
+    </div>
+  );
+}
+
+const emptyForm: Omit<Produto, "id"> = {
+  nome: "", descricao: "", preco: 0, categoria: "Medicamentos", imagem_url: "", estoque: 0, desconto: 0,
+};
+
+function ProdutosAdmin() {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Produto | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [uploadLoading, setUploadLoading] = useState(false);
+
+  const { data: produtos = [] } = useQuery({
+    queryKey: ["admin-produtos"],
+    queryFn: async () => {
+      const { data } = await supabase.from("produtos").select("*").order("nome");
+      return (data ?? []) as Produto[];
+    },
+  });
+
+  const openNew = () => { setEditing(null); setForm(emptyForm); setOpen(true); };
+  const openEdit = (p: Produto) => {
+    setEditing(p);
+    setForm({ ...p, descricao: p.descricao ?? "", imagem_url: p.imagem_url ?? "", desconto: p.desconto ?? 0 });
+    setOpen(true);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadLoading(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from("produtos").upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from("produtos").getPublicUrl(path);
+      setForm((f) => ({ ...f, imagem_url: urlData.publicUrl }));
+      toast.success("Imagem enviada!");
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao enviar imagem");
+    } finally {
+      setUploadLoading(false);
+    }
+  };
+
+  const save = async () => {
+    const payload = { ...form, preco: Number(form.preco), estoque: Number(form.estoque), desconto: Number(form.desconto) };
+    const op = editing
+      ? supabase.from("produtos").update(payload).eq("id", editing.id)
+      : supabase.from("produtos").insert(payload);
+    const { error } = await op;
+    if (error) { toast.error(error.message); return; }
+    toast.success(editing ? "Produto atualizado" : "Produto criado");
+    setOpen(false);
+    qc.invalidateQueries({ queryKey: ["admin-produtos"] });
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("Excluir produto?")) return;
+    const { error } = await supabase.from("produtos").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Excluído");
+    qc.invalidateQueries({ queryKey: ["admin-produtos"] });
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between mb-4">
+        <p className="text-sm text-muted-foreground">{produtos.length} produtos</p>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={openNew} className="rounded-full gap-2"><Plus className="h-4 w-4" /> Novo produto</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-xl">
+            <DialogHeader><DialogTitle>{editing ? "Editar" : "Novo"} produto</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
+              <div><Label>Descrição</Label><Textarea value={form.descricao ?? ""} onChange={(e) => setForm({ ...form, descricao: e.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Preço (R$)</Label><Input type="number" step="0.01" value={form.preco} onChange={(e) => setForm({ ...form, preco: Number(e.target.value) })} /></div>
+                <div><Label>Estoque</Label><Input type="number" value={form.estoque} onChange={(e) => setForm({ ...form, estoque: Number(e.target.value) })} /></div>
+                <div><Label>Categoria</Label>
+                  <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
+                    {["Medicamentos","Manipulacao","Vitaminas","Higiene Pessoal","Dermocosmeticos","Suplementos"].map((c) => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div><Label>Desconto (%)</Label><Input type="number" value={form.desconto ?? 0} onChange={(e) => setForm({ ...form, desconto: Number(e.target.value) })} /></div>
+              </div>
+
+              {/* Upload de imagem */}
+              <div className="space-y-2">
+                <Label>Imagem do produto</Label>
+                <div className="flex gap-2 items-center">
+                  <label className="flex-1 cursor-pointer">
+                    <div className="flex items-center justify-center gap-2 h-10 rounded-md border border-dashed border-input bg-background px-3 text-sm text-muted-foreground hover:border-primary hover:text-primary transition">
+                      {uploadLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</> : <><ImageIcon className="h-4 w-4" /> Tirar foto ou escolher arquivo</>}
+                    </div>
+                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageUpload} disabled={uploadLoading} />
+                  </label>
+                  {form.imagem_url && (
+                    <img src={form.imagem_url} alt="" className="h-10 w-10 rounded-lg object-cover border border-border shrink-0" />
+                  )}
+                </div>
+                {form.imagem_url && (
+                  <p className="text-xs text-muted-foreground truncate">{form.imagem_url}</p>
+                )}
+              </div>
+
+              <Button onClick={save} disabled={uploadLoading} className="w-full">{editing ? "Salvar" : "Criar"}</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="flex flex-col gap-3 md:hidden">
+        {produtos.map((p) => (
+          <div key={p.id} className="rounded-2xl border border-border bg-card p-4 flex gap-3">
+            {p.imagem_url && <img src={p.imagem_url} alt="" className="h-16 w-16 rounded-lg object-cover flex-shrink-0" />}
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm leading-tight">{p.nome}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{p.categoria}</p>
+              <p className="text-sm font-bold text-primary mt-1">{brl(Number(p.preco))}</p>
+              <p className="text-xs text-muted-foreground">Estoque: {p.estoque}</p>
+            </div>
+            <div className="flex flex-col gap-2 flex-shrink-0">
+              <Button variant="outline" size="sm" onClick={() => openEdit(p)} className="h-8 w-8 p-0 rounded-lg"><Pencil className="h-3.5 w-3.5" /></Button>
+              <Button variant="outline" size="sm" onClick={() => remove(p.id)} className="h-8 w-8 p-0 rounded-lg border-destructive"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden md:block rounded-2xl border border-border bg-card overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50"><tr className="text-left"><th className="p-3">Produto</th><th className="p-3">Categoria</th><th className="p-3">Preco</th><th className="p-3">Estoque</th><th className="p-3"></th></tr></thead>
+          <tbody>
+            {produtos.map((p) => (
+              <tr key={p.id} className="border-t border-border">
+                <td className="p-3 flex items-center gap-3">{p.imagem_url && <img src={p.imagem_url} alt="" className="h-10 w-10 rounded object-cover" />}<span className="font-medium">{p.nome}</span></td>
+                <td className="p-3 text-muted-foreground">{p.categoria}</td>
+                <td className="p-3 font-semibold">{brl(Number(p.preco))}</td>
+                <td className="p-3">{p.estoque}</td>
+                <td className="p-3 text-right">
+                  <Button variant="ghost" size="sm" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="sm" onClick={() => remove(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+const STATUS_PAGOS = ["pago", "em_preparacao", "a_caminho"] as const;
+const STATUS_LABELS: Record<string, string> = {
+  pendente:             "Pendente",
+  aguardando_pagamento: "Aguardando pagamento",
+  aguardando_pix:       "Aguardando PIX",
+  aguardando_boleto:    "Aguardando boleto",
+  pago:                 "Pago",
+  processando:          "Processando",
+  em_preparacao:        "Em preparação",
+  enviado:              "Enviado",
+  a_caminho:            "A caminho",
+  entregue:             "Entregue",
+  cancelado:            "Cancelado",
+  devolucao_solicitada: "Devolução solicitada",
+  devolucao_a_caminho:  "Devolução a caminho",
+  devolucao_aprovada:   "Devolução aprovada",
+};
+
+function PromocoesAdmin() {
+  const qc = useQueryClient();
+  const [addOpen, setAddOpen] = useState(false);
+
+  const { data: produtos = [] } = useQuery({
+    queryKey: ["admin-produtos"],
+    queryFn: async () => {
+      const { data } = await supabase.from("produtos").select("*").order("nome");
+      return (data ?? []) as Produto[];
+    },
+  });
+
+  const emPromocao = produtos.filter((p) => (p.desconto ?? 0) > 0);
+  const semPromocao = produtos.filter((p) => (p.desconto ?? 0) <= 0);
+
+  const setDesconto = async (id: string, desconto: number) => {
+    const valor = Math.max(0, Math.min(90, desconto));
+    const { error } = await supabase.from("produtos").update({ desconto: valor }).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["admin-produtos"] });
+  };
+
+  const removerPromocao = async (id: string) => {
+    const { error } = await supabase.from("produtos").update({ desconto: 0 }).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Removido da promoção");
+    qc.invalidateQueries({ queryKey: ["admin-produtos"] });
+  };
+
+  const adicionarPromocao = async (id: string, desconto: number) => {
+    await setDesconto(id, desconto);
+    toast.success("Adicionado à promoção");
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <div>
+          <p className="text-sm font-semibold">Promoção da semana</p>
+          <p className="text-xs text-muted-foreground">{emPromocao.length} produtos com desconto ativo</p>
+        </div>
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <DialogTrigger asChild>
+            <Button className="rounded-full gap-2"><Plus className="h-4 w-4" /> Adicionar produto</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>Adicionar à promoção</DialogTitle></DialogHeader>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {semPromocao.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">Todos os produtos já estão em promoção.</p>
+              ) : (
+                semPromocao.map((p) => <AdicionarPromoRow key={p.id} produto={p} onAdd={(d) => { adicionarPromocao(p.id, d); }} />)
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {emPromocao.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+          <Tag className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+          <p className="font-semibold">Nenhum produto em promoção</p>
+          <p className="text-sm text-muted-foreground mt-1">Adicione produtos para começar a promoção da semana.</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {emPromocao.map((p) => {
+            const finalPrice = Number(p.preco) * (1 - (p.desconto ?? 0) / 100);
+            return (
+              <div key={p.id} className="rounded-2xl border border-border bg-card p-4 flex gap-4 items-center">
+                {p.imagem_url && <img src={p.imagem_url} alt="" className="h-16 w-16 rounded-xl object-cover shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm leading-tight line-clamp-1">{p.nome}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs line-through text-muted-foreground">{brl(Number(p.preco))}</span>
+                    <span className="text-sm font-bold text-primary">{brl(finalPrice)}</span>
+                    <span className="text-[10px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">-{p.desconto}%</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center rounded-lg border border-border">
+                    <button onClick={() => setDesconto(p.id, (p.desconto ?? 0) - 5)} className="grid h-9 w-9 place-items-center hover:bg-muted rounded-l-lg text-muted-foreground">
+                      <span className="text-lg leading-none">−</span>
+                    </button>
+                    <span className="w-12 text-center text-sm font-bold">{p.desconto}%</span>
+                    <button onClick={() => setDesconto(p.id, (p.desconto ?? 0) + 5)} className="grid h-9 w-9 place-items-center hover:bg-muted rounded-r-lg text-muted-foreground">
+                      <span className="text-lg leading-none">+</span>
+                    </button>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => removerPromocao(p.id)} className="h-9 w-9 p-0 text-destructive hover:bg-destructive/5">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdicionarPromoRow({ produto, onAdd }: { produto: Produto; onAdd: (desconto: number) => void }) {
+  const [desconto, setDesconto] = useState(10);
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border p-3">
+      {produto.imagem_url && <img src={produto.imagem_url} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0" />}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium line-clamp-1">{produto.nome}</p>
+        <p className="text-xs text-muted-foreground">{brl(Number(produto.preco))}</p>
+      </div>
+      <select
+        value={desconto}
+        onChange={(e) => setDesconto(Number(e.target.value))}
+        className="h-9 rounded-lg border border-input bg-background px-2 text-sm"
+      >
+        {[5, 10, 15, 20, 25, 30, 40, 50].map((d) => <option key={d} value={d}>{d}%</option>)}
+      </select>
+      <Button size="sm" onClick={() => onAdd(desconto)} className="rounded-full shrink-0">Adicionar</Button>
+    </div>
+  );
+}
+
+function PedidosAdmin() {
+  const qc = useQueryClient();
+  const { data: pedidos = [] } = useQuery({
+    queryKey: ["admin-pedidos"],
+    queryFn: async () => {
+      const { data } = await supabase.from("pedidos").select("*").order("criado_em", { ascending: false });
+      return data ?? [];
+    },
+  });
+
+  const PENDING = ["pendente", "aguardando_pagamento", "aguardando_pix", "aguardando_boleto"];
+  const ATIVOS = ["pago", "processando", "em_preparacao", "enviado", "a_caminho"];
+  const DEVOLUCAO_ANDAMENTO = ["devolucao_solicitada", "devolucao_a_caminho"];
+  const DEVOLUCAO_FINALIZADA = ["devolucao_aprovada"];
+
+  const aguardando = pedidos.filter((p: any) => PENDING.includes(p.status));
+  const ativos = pedidos.filter((p: any) => ATIVOS.includes(p.status));
+  const finalizados = pedidos.filter((p: any) => ["entregue", "cancelado", ...DEVOLUCAO_ANDAMENTO, ...DEVOLUCAO_FINALIZADA].includes(p.status));
+  const devolucoes_andamento = pedidos.filter((p: any) => DEVOLUCAO_ANDAMENTO.includes(p.status));
+  const devolucoes_finalizadas = pedidos.filter((p: any) => DEVOLUCAO_FINALIZADA.includes(p.status));
+  const total_devolucoes = devolucoes_andamento.length + devolucoes_finalizadas.length;
+
+  const exportar = () => {
+    const rows = pedidos.map((p: any) => ({
+      Data: new Date(p.criado_em).toLocaleString("pt-BR"),
+      Nome: p.nome_cliente, "E-mail": p.email, CEP: p.cep, Endereco: p.endereco,
+      Cidade: p.cidade, Estado: p.estado,
+      Itens: (p.itens as any[]).map((i) => `${i.quantidade}x ${i.nome}`).join(" | "),
+      Subtotal: Number(p.subtotal), Frete: Number(p.frete),
+      "Desconto PIX": Number(p.desconto_pix), Total: Number(p.total),
+      "Forma de Pagamento": p.forma_pagamento,
+      Status: STATUS_LABELS[p.status] ?? p.status,
+      "Motivo Devolucao": p.motivo_devolucao ?? "",
+      "Codigo de Rastreio": (p as any).codigo_rastreio ?? "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Pedidos");
+    XLSX.writeFile(wb, `farmapro-pedidos-${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
+  const marcarPago = async (id: string) => {
+    const { error } = await supabase.from("pedidos").update({ status: "pago" }).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Pedido marcado como pago");
+    qc.invalidateQueries({ queryKey: ["admin-pedidos"] });
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between mb-4 gap-3 flex-wrap">
+        <p className="text-sm text-muted-foreground">{pedidos.length} pedidos no total</p>
+        <Button onClick={exportar} className="rounded-full gap-2"><Download className="h-4 w-4" /> Exportar (.xlsx)</Button>
+      </div>
+
+      <Tabs defaultValue="aguardando">
+        <TabsList className="flex-wrap h-auto">
+          <TabsTrigger value="aguardando" className="text-xs shrink-0">Aguardando ({aguardando.length})</TabsTrigger>
+          <TabsTrigger value="ativos" className="text-xs shrink-0">Ativos ({ativos.length})</TabsTrigger>
+          <TabsTrigger value="finalizados" className="text-xs shrink-0">Finalizados ({finalizados.length})</TabsTrigger>
+          <TabsTrigger value="devolucoes" className="relative text-xs shrink-0">
+            Devoluções ({total_devolucoes})
+            {devolucoes_andamento.length > 0 && (
+              <span className="ml-1 h-2 w-2 rounded-full bg-orange-500 inline-block" />
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="aguardando" className="mt-4">
+          {aguardando.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">Nenhum pedido aguardando pagamento.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {aguardando.map((p: any) => (
+                <div key={p.id} className="rounded-2xl border border-border bg-card p-4 space-y-2">
+                  <div className="flex justify-between items-start gap-3 flex-wrap">
+                    <div>
+                      <p className="font-semibold text-sm">{p.nome_cliente}</p>
+                      <p className="text-xs text-muted-foreground">{p.email}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{new Date(p.criado_em).toLocaleString("pt-BR")} · {(p.itens as any[]).length} itens · {p.cidade}/{p.estado}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-base font-bold text-primary">{brl(Number(p.total))}</div>
+                      <span className="text-xs bg-muted px-2 py-1 rounded-full capitalize">{p.forma_pagamento}</span>
+                    </div>
+                  </div>
+                  <Button size="sm" onClick={() => marcarPago(p.id)} className="rounded-full gap-2">
+                    <Check className="h-3.5 w-3.5" /> Marcar como pago
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="ativos" className="mt-4">
+          {ativos.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">Nenhum pedido ativo.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {ativos.map((p: any) => <PedidoPagoCard key={p.id} pedido={p} />)}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="finalizados" className="mt-4">
+          {finalizados.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">Nenhum pedido finalizado.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {finalizados.map((p: any) => <PedidoFinalizadoCard key={p.id} pedido={p} />)}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="devolucoes" className="mt-4">
+          <div className="space-y-6">
+            <div>
+              <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-orange-500 inline-block" />
+                Em andamento ({devolucoes_andamento.length})
+              </h3>
+              {devolucoes_andamento.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma devolução em andamento.</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {devolucoes_andamento.map((p: any) => <DevolucaoCard key={p.id} pedido={p} />)}
+                </div>
+              )}
+            </div>
+            <div className="border-t border-border pt-6">
+              <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-green-500 inline-block" />
+                Finalizadas ({devolucoes_finalizadas.length})
+              </h3>
+              {devolucoes_finalizadas.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma devolução finalizada.</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {devolucoes_finalizadas.map((p: any) => <PedidoFinalizadoCard key={p.id} pedido={p} showDevolucao />)}
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function PedidoFinalizadoCard({ pedido, showDevolucao }: { pedido: any; showDevolucao?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const fmt = (d: string) => new Date(d).toLocaleDateString("pt-BR");
+  const itens = (pedido.itens as any[]) ?? [];
+
+  const timeline = [
+    { label: "Pedido realizado", data: pedido.criado_em, icon: ShoppingBag },
+    pedido.entregue_em ? { label: "Entregue", data: pedido.entregue_em, icon: CheckCircle2 } : null,
+    pedido.devolucao_solicitada_em ? { label: "Devolucao solicitada", data: pedido.devolucao_solicitada_em, icon: RotateCcw } : null,
+    pedido.status === "cancelado" ? { label: "Cancelado", data: pedido.criado_em, icon: Ban } : null,
+  ].filter(Boolean) as { label: string; data: string; icon: any }[];
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full text-left rounded-2xl border border-border bg-card p-4 space-y-3 hover:border-primary/40 transition"
+      >
+        <div className="flex justify-between items-start gap-3 flex-wrap">
+          <div>
+            <p className="font-semibold text-sm">{pedido.nome_cliente}</p>
+            <p className="text-xs text-muted-foreground">{pedido.email}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              #{pedido.id.slice(0, 8).toUpperCase()} · {pedido.cidade}/{pedido.estado}
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-base font-bold text-primary">{brl(Number(pedido.total))}</div>
+            <span className="text-xs bg-muted px-2 py-1 rounded-full capitalize">{pedido.forma_pagamento}</span>
+          </div>
+        </div>
+
+        <div className="text-xs text-muted-foreground border-t border-border pt-3 space-y-1">
+          <p className="line-clamp-1">{itens.map((i: any) => `${i.quantidade}x ${i.nome}`).join(" · ")}</p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+            <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> Pedido em {fmt(pedido.criado_em)}</span>
+            {pedido.entregue_em && <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-600" /> Entregue em {fmt(pedido.entregue_em)}</span>}
+            {pedido.status === "cancelado" && <span className="flex items-center gap-1 text-destructive"><Ban className="h-3 w-3" /> Cancelado</span>}
+          </div>
+        </div>
+
+        {showDevolucao && pedido.motivo_devolucao && (
+          <div className="rounded-lg bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900 p-3 text-xs">
+            <p className="font-semibold text-orange-700 dark:text-orange-400">Devolucao aprovada</p>
+            <p className="text-orange-600 dark:text-orange-300 mt-0.5">Motivo: {pedido.motivo_devolucao}</p>
+          </div>
+        )}
+      </button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Pedido #{pedido.id.slice(0, 8).toUpperCase()}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-1">Cliente</p>
+              <p className="font-semibold">{pedido.nome_cliente}</p>
+              <p className="text-muted-foreground">{pedido.email}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-1">Entrega</p>
+              <p>{pedido.endereco}</p>
+              <p className="text-muted-foreground">{pedido.cidade}/{pedido.estado} · CEP {pedido.cep}</p>
+              {pedido.codigo_rastreio && (
+                <p className="mt-1 font-mono text-xs bg-muted px-2 py-1 rounded inline-block">{pedido.codigo_rastreio}</p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-1">Itens</p>
+              {itens.map((i: any) => (
+                <div key={i.id} className="flex justify-between py-0.5">
+                  <span>{i.quantidade}x {i.nome}</span>
+                  <span className="font-semibold">{brl(i.preco * i.quantidade)}</span>
+                </div>
+              ))}
+              <div className="border-t border-border mt-2 pt-2 flex justify-between font-bold">
+                <span>Total</span>
+                <span className="text-primary">{brl(Number(pedido.total))}</span>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-2">Historico</p>
+              <div className="space-y-2">
+                {timeline.map((t, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center shrink-0">
+                      <t.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 flex justify-between">
+                      <span>{t.label}</span>
+                      <span className="text-muted-foreground">{fmt(t.data)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {pedido.motivo_devolucao && (
+              <div className="rounded-lg bg-orange-50 dark:bg-orange-950/20 border border-orange-200 p-3">
+                <p className="font-semibold text-orange-700 dark:text-orange-400 text-xs">Motivo da devolucao</p>
+                <p className="text-orange-600 dark:text-orange-300 mt-0.5">{pedido.motivo_devolucao}</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function PedidoPagoCard({ pedido }: { pedido: any }) {
+  const qc = useQueryClient();
+  const [status, setStatus] = useState<string>(pedido.status);
+  const [rastreio, setRastreio] = useState<string>(pedido.codigo_rastreio ?? "");
+  const [saving, setSaving] = useState(false);
+
+  const updateStatus = async (novo: string) => {
+    setStatus(novo);
+    const { error } = await supabase.from("pedidos").update({ status: novo }).eq("id", pedido.id);
+    if (error) { toast.error(error.message); setStatus(pedido.status); return; }
+    toast.success("Status atualizado");
+    qc.invalidateQueries({ queryKey: ["admin-pedidos"] });
+  };
+
+  const saveRastreio = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("pedidos").update({ codigo_rastreio: rastreio.trim() || null } as any).eq("id", pedido.id);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Codigo de rastreio salvo");
+    qc.invalidateQueries({ queryKey: ["admin-pedidos"] });
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+      <div className="flex justify-between items-start gap-3 flex-wrap">
+        <div>
+          <p className="font-semibold text-sm">{pedido.nome_cliente}</p>
+          <p className="text-xs text-muted-foreground">{pedido.email}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            #{pedido.id.slice(0, 8).toUpperCase()} · {new Date(pedido.criado_em).toLocaleString("pt-BR")} · {(pedido.itens as any[]).length} itens · {pedido.cidade}/{pedido.estado}
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="text-base font-bold text-primary">{brl(Number(pedido.total))}</div>
+          <span className="text-xs bg-muted px-2 py-1 rounded-full capitalize">{pedido.forma_pagamento}</span>
+        </div>
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-3 pt-2 border-t border-border">
+        <div>
+          <Label className="text-xs">Status</Label>
+          <select className="w-full h-9 mt-1 rounded-md border border-input bg-background px-3 text-sm"
+            value={status} onChange={(e) => updateStatus(e.target.value)}>
+            {STATUS_PAGOS.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+          </select>
+        </div>
+        <div>
+          <Label className="text-xs">Codigo de rastreio</Label>
+          <div className="flex gap-2 mt-1">
+            <Input value={rastreio} onChange={(e) => setRastreio(e.target.value)} placeholder="Ex.: BR123456789BR" className="h-9" />
+            <Button size="sm" onClick={saveRastreio} disabled={saving} className="h-9">Salvar</Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DevolucaoCard({ pedido }: { pedido: any }) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const [openRejeitar, setOpenRejeitar] = useState(false);
+  const [openAprovar, setOpenAprovar] = useState(false);
+  const [senha, setSenha] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const atualizarStatus = async (novoStatus: string) => {
+    const { error } = await supabase.from("pedidos").update({ status: novoStatus }).eq("id", pedido.id);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["admin-pedidos"] });
+  };
+
+  const aprovarReembolso = async () => {
+    if (!senha) { toast.error("Digite a senha para confirmar"); return; }
+    setLoading(true);
+    try {
+      // Verifica a senha do admin
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: user!.email!,
+        password: senha,
+      });
+      if (authError) {
+        toast.error("Senha incorreta");
+        setLoading(false);
+        return;
+      }
+
+      // Chama o endpoint de estorno no MP com bearer token para verificação server-side
+      const { data: { session } } = await supabase.auth.getSession();
+      const r = await fetch("/api/mercadopago/refund", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token ?? ""}`,
+        },
+        body: JSON.stringify({ payment_id: pedido.mercadopago_payment_id }),
+      });
+      const data = await r.json();
+
+      if (!r.ok) {
+        toast.error(data?.error || "Falha ao processar estorno no Mercado Pago");
+        setLoading(false);
+        return;
+      }
+
+      await atualizarStatus("devolucao_aprovada");
+      toast.success("Estorno realizado! Dinheiro devolvido ao cliente.");
+      setOpenAprovar(false);
+      setSenha("");
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao processar estorno");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const rejeitar = async () => {
+    await atualizarStatus("entregue");
+    toast.success("Devolucao rejeitada. Pedido voltou para entregue.");
+    setOpenRejeitar(false);
+  };
+
+  return (
+    <div className="rounded-2xl border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900 p-4 space-y-3">
+      <div className="flex justify-between items-start gap-3 flex-wrap">
+        <div>
+          <p className="font-semibold text-sm">{pedido.nome_cliente}</p>
+          <p className="text-xs text-muted-foreground">{pedido.email}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            #{pedido.id.slice(0, 8).toUpperCase()} · {new Date(pedido.criado_em).toLocaleString("pt-BR")} · {pedido.cidade}/{pedido.estado}
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="text-base font-bold text-orange-700">{brl(Number(pedido.total))}</div>
+          <span className="text-xs bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 px-2 py-1 rounded-full">
+            {STATUS_LABELS[pedido.status]}
+          </span>
+        </div>
+      </div>
+
+      {pedido.motivo_devolucao && (
+        <div className="rounded-lg bg-white dark:bg-background border border-orange-200 dark:border-orange-900 p-3 text-sm">
+          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-1">Motivo informado</p>
+          <p>{pedido.motivo_devolucao}</p>
+          {pedido.devolucao_solicitada_em && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Solicitado em {new Date(pedido.devolucao_solicitada_em).toLocaleDateString("pt-BR")}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="flex gap-2 pt-1">
+        {/* Avanca status manualmente (produto a caminho de volta) */}
+        {pedido.status === "devolucao_solicitada" && (
+          <Button size="sm" variant="outline" className="rounded-full gap-2 border-orange-400 text-orange-700"
+            onClick={() => atualizarStatus("devolucao_a_caminho")}>
+            <RotateCcw className="h-3.5 w-3.5" /> A caminho
+          </Button>
+        )}
+
+        {/* Aprovar reembolso — exige senha e chama API do MP */}
+        <Dialog open={openAprovar} onOpenChange={setOpenAprovar}>
+          <Button size="sm" className="rounded-full gap-2 bg-green-600 hover:bg-green-700"
+            onClick={() => { setSenha(""); setOpenAprovar(true); }}>
+            <Check className="h-3.5 w-3.5" /> Aprovar reembolso
+          </Button>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Confirmar reembolso</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="rounded-lg bg-muted/50 p-3 text-sm space-y-1">
+                <p><span className="text-muted-foreground">Cliente:</span> {pedido.nome_cliente}</p>
+                <p><span className="text-muted-foreground">Valor:</span> <span className="font-bold text-primary">{brl(Number(pedido.total))}</span></p>
+                <p><span className="text-muted-foreground">Motivo:</span> {pedido.motivo_devolucao}</p>
+              </div>
+              <div>
+                <Label>Digite sua senha para autorizar o estorno</Label>
+                <Input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} className="mt-1"
+                  placeholder="Sua senha de admin" onKeyDown={(e) => e.key === "Enter" && aprovarReembolso()} />
+              </div>
+              <Button className="w-full rounded-full bg-green-600 hover:bg-green-700" disabled={loading || !senha} onClick={aprovarReembolso}>
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : `Confirmar estorno de ${brl(Number(pedido.total))}`}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Rejeitar */}
+        <Dialog open={openRejeitar} onOpenChange={setOpenRejeitar}>
+          <Button size="sm" variant="outline" className="rounded-full gap-2 border-destructive text-destructive hover:bg-destructive/5"
+            onClick={() => setOpenRejeitar(true)}>
+            <Trash2 className="h-3.5 w-3.5" /> Rejeitar
+          </Button>
+          <DialogContent className="max-w-sm">
+            <DialogHeader><DialogTitle>Rejeitar devolução?</DialogTitle></DialogHeader>
+            <p className="text-sm text-muted-foreground">O pedido voltara para o status "Entregue" e o cliente nao recebera o reembolso.</p>
+            <div className="flex gap-2 mt-2">
+              <Button variant="outline" className="flex-1 rounded-full" onClick={() => setOpenRejeitar(false)}>Cancelar</Button>
+              <Button variant="destructive" className="flex-1 rounded-full" onClick={rejeitar}>Rejeitar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  );
+}
+
+function EquipeAdmin() {
+  const qc = useQueryClient();
+  const list = useServerFn(listFuncionarios);
+  const create = useServerFn(createFuncionario);
+  const update = useServerFn(updateFuncionario);
+  const del = useServerFn(deleteFuncionario);
+  const setActive = useServerFn(setAccountActive);
+
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<{ id: string; nome: string | null; email: string | null } | null>(null);
+  const [form, setForm] = useState({ nome: "", email: "", senha: "" });
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-funcionarios"],
+    queryFn: () => list(),
+  });
+  const funcionarios = data?.funcionarios ?? [];
+
+  const openNew = () => { setEditing(null); setForm({ nome: "", email: "", senha: "" }); setOpen(true); };
+  const openEdit = (f: any) => { setEditing(f); setForm({ nome: f.nome ?? "", email: f.email ?? "", senha: "" }); setOpen(true); };
+
+  const save = async () => {
+    try {
+      if (editing) {
+        await update({ data: { id: editing.id, nome: form.nome, senha: form.senha || undefined } });
+        toast.success("Funcionario atualizado");
+      } else {
+        if (!form.senha || form.senha.length < 6) { toast.error("Senha deve ter 6+ caracteres"); return; }
+        await create({ data: { nome: form.nome, email: form.email, senha: form.senha } });
+        toast.success("Funcionario criado");
+      }
+      setOpen(false);
+      qc.invalidateQueries({ queryKey: ["admin-funcionarios"] });
+    } catch (e: any) { toast.error(e.message ?? "Erro"); }
+  };
+
+  const toggle = async (id: string, ativo: boolean) => {
+    try {
+      await setActive({ data: { id, ativo: !ativo } });
+      toast.success(ativo ? "Conta desativada" : "Conta reativada");
+      qc.invalidateQueries({ queryKey: ["admin-funcionarios"] });
+    } catch (e: any) { toast.error(e.message ?? "Erro"); }
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("Excluir funcionario definitivamente?")) return;
+    try {
+      await del({ data: { id } });
+      toast.success("Excluido");
+      qc.invalidateQueries({ queryKey: ["admin-funcionarios"] });
+    } catch (e: any) { toast.error(e.message ?? "Erro"); }
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between mb-4">
+        <p className="text-sm text-muted-foreground">{funcionarios.length} funcionarios</p>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={openNew} className="rounded-full gap-2"><Plus className="h-4 w-4" /> Novo funcionario</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{editing ? "Editar funcionario" : "Cadastrar funcionario"}</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
+              <div><Label>E-mail</Label><Input type="email" disabled={!!editing} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+              <div>
+                <Label>{editing ? "Nova senha (opcional)" : "Senha temporaria"}</Label>
+                <Input type="text" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} />
+              </div>
+              <Button onClick={save} className="w-full">{editing ? "Salvar" : "Criar"}</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {isLoading ? <p className="text-sm text-muted-foreground">Carregando...</p> : (
+        <div className="rounded-2xl border border-border bg-card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50"><tr className="text-left"><th className="p-3">Nome</th><th className="p-3">E-mail</th><th className="p-3">Status</th><th className="p-3 text-right">Acoes</th></tr></thead>
+            <tbody>
+              {funcionarios.map((f: { id: string; nome: string | null; email: string | null; ativo: boolean }) => (
+                <tr key={f.id} className="border-t border-border">
+                  <td className="p-3 font-medium">{f.nome ?? "—"}</td>
+                  <td className="p-3 text-muted-foreground">{f.email}</td>
+                  <td className="p-3">
+                    <span className={`text-xs px-2 py-1 rounded-full ${f.ativo ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}>
+                      {f.ativo ? "Ativo" : "Suspenso"}
+                    </span>
+                  </td>
+                  <td className="p-3 text-right">
+                    <Button variant="ghost" size="sm" onClick={() => openEdit(f)}><Pencil className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="sm" onClick={() => toggle(f.id, f.ativo)}>
+                      {f.ativo ? <Ban className="h-4 w-4 text-destructive" /> : <Check className="h-4 w-4 text-primary" />}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => remove(f.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  </td>
+                </tr>
+              ))}
+              {!funcionarios.length && <tr><td colSpan={4} className="p-6 text-center text-sm text-muted-foreground">Nenhum funcionario cadastrado</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ClientesAdmin() {
+  const qc = useQueryClient();
+  const list = useServerFn(listClientes);
+  const setActive = useServerFn(setAccountActive);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-clientes"],
+    queryFn: () => list(),
+  });
+  const clientes = data?.clientes ?? [];
+
+  const toggle = async (id: string, ativo: boolean) => {
+    try {
+      await setActive({ data: { id, ativo: !ativo } });
+      toast.success(ativo ? "Cliente desativado" : "Cliente reativado");
+      qc.invalidateQueries({ queryKey: ["admin-clientes"] });
+    } catch (e: any) { toast.error(e.message ?? "Erro"); }
+  };
+
+  return (
+    <div>
+      <p className="text-sm text-muted-foreground mb-4">{clientes.length} clientes</p>
+      {isLoading ? <p className="text-sm text-muted-foreground">Carregando...</p> : (
+        <div className="rounded-2xl border border-border bg-card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50"><tr className="text-left"><th className="p-3">Nome</th><th className="p-3">E-mail</th><th className="p-3">Cadastro</th><th className="p-3">Pedidos</th><th className="p-3">Status</th><th className="p-3 text-right">Acoes</th></tr></thead>
+            <tbody>
+              {clientes.map((c: any) => (
+                <tr key={c.id} className="border-t border-border">
+                  <td className="p-3 font-medium">{c.nome ?? "—"}</td>
+                  <td className="p-3 text-muted-foreground">{c.email}</td>
+                  <td className="p-3 text-xs">{new Date(c.created_at).toLocaleDateString("pt-BR")}</td>
+                  <td className="p-3 font-semibold">{c.pedidos_count}</td>
+                  <td className="p-3">
+                    <span className={`text-xs px-2 py-1 rounded-full ${c.ativo ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}>
+                      {c.ativo ? "Ativo" : "Suspenso"}
+                    </span>
+                  </td>
+                  <td className="p-3 text-right">
+                    <Button variant="ghost" size="sm" onClick={() => toggle(c.id, c.ativo)}>
+                      {c.ativo ? <Ban className="h-4 w-4 text-destructive" /> : <Check className="h-4 w-4 text-primary" />}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+              {!clientes.length && <tr><td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">Nenhum cliente cadastrado</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
