@@ -1,0 +1,8 @@
+revoke execute on function public.descontar_estoque() from public, anon, authenticated;
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
+
+revoke execute on function public.has_role(uuid, public.app_role) from public, anon;
+grant execute on function public.has_role(uuid, public.app_role) to authenticated;
+
+revoke execute on function public.is_staff(uuid) from public, anon;
+grant execute on function public.is_staff(uuid) to authenticated;

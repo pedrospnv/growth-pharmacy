@@ -1,0 +1,9 @@
+-- Adiciona campos de endereço e telefone na tabela profiles
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS telefone text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS cep text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS rua text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS numero text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS complemento text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS bairro text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS cidade text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS estado text;
